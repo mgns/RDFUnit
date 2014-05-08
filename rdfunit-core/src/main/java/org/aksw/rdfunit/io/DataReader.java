@@ -9,15 +9,19 @@ import org.aksw.rdfunit.exceptions.TripleReaderException;
  * Interface for a reader
  * Created: 11/14/13 8:33 AM
  */
-public abstract class TripleReader {
+public abstract class DataReader {
 
     /*
     * reads and returns a new jena Model
     * */
     public Model read() throws TripleReaderException {
-        Model model = ModelFactory.createDefaultModel();
-        read(model);
-        return model;
+		try{
+			Model model = ModelFactory.createDefaultModel();
+			read(model);
+			return model;
+		}catch(Exception e){
+			throw new TripleReaderException(e);
+		}
     }
 
     /*

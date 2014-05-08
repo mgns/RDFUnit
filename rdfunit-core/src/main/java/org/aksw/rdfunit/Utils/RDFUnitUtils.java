@@ -5,6 +5,8 @@ import com.hp.hpl.jena.query.QuerySolution;
 import com.hp.hpl.jena.query.ResultSet;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
+import org.aksw.rdfunit.io.DataReader;
+import org.aksw.rdfunit.io.RDFFileReader;
 import org.aksw.rdfunit.services.PrefixService;
 import org.aksw.rdfunit.services.SchemaService;
 import org.aksw.rdfunit.sources.DatasetSource;
@@ -14,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,7 +34,8 @@ public class RDFUnitUtils {
                 " PREFIX dcterms: <http://purl.org/dc/terms/> \n" +
                 " PREFIX dc: <http://purl.org/dc/elements/1.1/> \n" +
                 " PREFIX rlog: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/rlog#> \n" +
-                " PREFIX ruto: <http://rdfunit.aksw.org/ns/core#> \n" +
+                " PREFIX prov: <http://www.w3.org/ns/prov#> \n" +
+                " PREFIX rut: <http://rdfunit.aksw.org/ns/core#> \n" +
                 " PREFIX rutp: <http://rdfunit.aksw.org/data/patterns#> \n" +
                 " PREFIX rutt: <http://rdfunit.aksw.org/data/tests#> \n" +
                 " PREFIX rutg: <http://rdfunit.aksw.org/data/generators#> \n"
@@ -74,13 +76,10 @@ public class RDFUnitUtils {
                 }
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                System.exit(1);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                System.exit(1);
             } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                System.exit(1);
             }
 
             log.info("Loaded " + count + " schema declarations from: " + additionalCSV);
@@ -88,8 +87,8 @@ public class RDFUnitUtils {
     }
 
     public static void fillSchemaServiceFromLOV() {
-        List<Source> sources = new ArrayList<Source>();
-        Source lov = new DatasetSource("lov", "http://lov.okfn.org", "http://lov.okfn.org/endpoint/lov", "", null);
+        java.util.Collection<Source> sources = new ArrayList<Source>();
+        Source lov = new DatasetSource("lov", "http://lov.okfn.org", "http://lov.okfn.org/endpoint/lov", new ArrayList<String>(), null);
 
         QueryExecution qe = null;
         int count = 0;
@@ -139,24 +138,23 @@ public class RDFUnitUtils {
         log.info("Loaded " + count + " schema declarations from LOV SPARQL Endpoint");
     }
 
-    public static void fillPrefixService(String filename) {
-
-        Model prefixModel = ModelFactory.createDefaultModel();
-        try {
-            prefixModel.read(new FileInputStream(filename), null, "TURTLE");
-        } catch (Exception e) {
-            // TODO handle exception
-        }
-
-        // Update Prefix Service
-        Map<String, String> prf = prefixModel.getNsPrefixMap();
-        for (String id : prf.keySet()) {
-            PrefixService.addPrefix(id, prf.get(id));
-        }
-    }
-
     public static boolean fileExists(String path) {
         File f = new File(path);
         return f.exists();
+    }
+
+    public static DataReader getPatternsFromResource() {
+        return new RDFFileReader(RDFUnitUtils.class.getResourceAsStream("/org/aksw/rdfunit/patterns.ttl"));
+    }
+
+    public static DataReader getAutoGeneratorsFromResource() {
+        return new RDFFileReader(RDFUnitUtils.class.getResourceAsStream("/org/aksw/rdfunit/testAutoGenerators.ttl"));
+    }
+
+    public static <T> T getFirstItemInCollection(java.util.Collection<T> collection) {
+        //noinspection LoopStatementThatDoesntLoop
+        for (T item : collection)
+            return item;
+        return null;
     }
 }

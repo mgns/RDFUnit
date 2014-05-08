@@ -8,7 +8,7 @@ import com.vaadin.data.util.PropertysetItem;
 import com.vaadin.shared.ui.combobox.FilteringMode;
 import com.vaadin.ui.*;
 import com.vaadin.ui.Button.ClickEvent;
-import org.aksw.rdfunit.io.TripleDereferenceReader;
+import org.aksw.rdfunit.io.RDFDereferenceReader;
 import org.aksw.rdfunit.services.SchemaService;
 import org.aksw.rdfunit.sources.SchemaSource;
 import org.aksw.rdfunit.sources.Source;
@@ -181,7 +181,7 @@ public class SchemaSelectorComponent extends VerticalLayout {
                             prefix = prefixField.getValue();
                             uri = uriField.getValue();
                             if (!(prefix == null || uri == null || prefix.isEmpty() || uri.isEmpty())) {
-                                SchemaSource source = new SchemaSource(prefix, uri, new TripleDereferenceReader(uri));
+                                SchemaSource source = new SchemaSource(prefix, uri, new RDFDereferenceReader(uri));
                                 ((BeanItemContainer) f.getContainerDataSource())
                                         .addBean(source);
                                 f.addToken(source);
@@ -203,8 +203,8 @@ public class SchemaSelectorComponent extends VerticalLayout {
         BeanItemContainer<SchemaSource> container = new BeanItemContainer<SchemaSource>(
                 SchemaSource.class);
 
-        List<SchemaSource> sources = SchemaService.getSourceListAll(false, null);
-        Collections.sort(sources);
+        java.util.Collection <SchemaSource> sources = SchemaService.getSourceListAll(false, null);
+        //Collections.sort(sources);
 
         for (SchemaSource s : sources)
             container.addBean(s);
@@ -264,8 +264,8 @@ public class SchemaSelectorComponent extends VerticalLayout {
         }
     }
 
-    public List<SchemaSource> getSelections() {
-        List<SchemaSource> sources = new ArrayList<SchemaSource>();
+    public java.util.Collection <SchemaSource> getSelections() {
+        java.util.Collection <SchemaSource> sources = new ArrayList<SchemaSource>();
 
         Object selectedSources = tokenField.getValue();
 
@@ -278,7 +278,7 @@ public class SchemaSelectorComponent extends VerticalLayout {
         return sources;
     }
 
-    public void setSelections(List<SchemaSource> sources) {
+    public void setSelections(java.util.Collection <SchemaSource> sources) {
         clearSelections();
         for (SchemaSource s : sources)
             tokenField.addToken(s);

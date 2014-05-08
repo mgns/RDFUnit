@@ -1,11 +1,12 @@
 package org.aksw.rdfunit.services;
 
+import org.aksw.rdfunit.Utils.CacheUtils;
+import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.sources.SchemaSource;
 import org.aksw.rdfunit.sources.SourceFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
@@ -32,8 +33,11 @@ public class SchemaService {
 
     public static SchemaSource getSource(String baseFolder, String id) {
         String sourceUriURL = schemata.get(id);
-        if (sourceUriURL == null)
-            return null;
+        if (sourceUriURL == null) {
+            // If not a prefix try to dereference it
+            return SourceFactory.createSchemaSourceDereference(CacheUtils.getAutoPrefixForURI(id), id);
+        }
+
         String[] split = sourceUriURL.split("\t");
         if (split.length == 2) {
             if (baseFolder != null)
@@ -48,8 +52,8 @@ public class SchemaService {
         }
     }
 
-    public static List<SchemaSource> getSourceList(String baseFolder, List<String> ids) {
-        List<SchemaSource> sources = new ArrayList<SchemaSource>();
+    public static java.util.Collection<SchemaSource> getSourceList(String baseFolder, java.util.Collection<String> ids) {
+        java.util.Collection<SchemaSource> sources = new ArrayList<SchemaSource>();
         for (String id : ids) {
             SchemaSource src = getSource(baseFolder, id.trim());
             if (src != null)
@@ -58,8 +62,8 @@ public class SchemaService {
         return sources;
     }
 
-    public static List<SchemaSource> getSourceListAll(boolean fileCache, String baseFolder) {
-        List<String> prefixes = new ArrayList<String>();
+    public static java.util.Collection<SchemaSource> getSourceListAll(boolean fileCache, String baseFolder) {
+        java.util.Collection<String> prefixes = new ArrayList<String>();
         prefixes.addAll(schemata.keySet());
 
         if (fileCache)

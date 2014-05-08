@@ -7,7 +7,7 @@ import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.Utils.TestUtils;
 import org.aksw.rdfunit.enums.TestGenerationType;
 import org.aksw.rdfunit.exceptions.BindingException;
-import org.aksw.rdfunit.exceptions.TestCaseException;
+import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
 import org.aksw.rdfunit.patterns.Pattern;
 import org.aksw.rdfunit.patterns.PatternParameter;
 import org.aksw.rdfunit.sources.Source;
@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
@@ -31,15 +30,15 @@ public class TestAutoGenerator {
     private final String description;
     private final String query;
     private final Pattern pattern;
-    private final List<ResultAnnotation> annotations;
+    private final java.util.Collection<ResultAnnotation> annotations;
 
-    public TestAutoGenerator(String uri, String description, String query, Pattern pattern, List<ResultAnnotation> annotations) {
+    public TestAutoGenerator(String uri, String description, String query, Pattern pattern, java.util.Collection<ResultAnnotation> annotations) {
         this.URI = uri;
         this.description = description;
         this.query = query;
         this.pattern = pattern;
         this.annotations = annotations;
-        this.getAnnotations().addAll(pattern.getAnnotations()); // get Pattern annotations and add them
+        this.annotations.addAll(pattern.getAnnotations()); // get Pattern annotations and add them
     }
 
     /**
@@ -59,8 +58,8 @@ public class TestAutoGenerator {
             return false;
         }
 
-        List<Var> sv = q.getProjectVars();
-        if (sv.size() != pattern.getParameters().size()) {
+        java.util.Collection<Var> sv = q.getProjectVars();
+        if (sv.size() != pattern.getParameters().size() + 1) {
             log.error(getURI() + " Select variables are different than Pattern parameters");
             return false;
         }
@@ -69,8 +68,8 @@ public class TestAutoGenerator {
         return true;
     }
 
-    public List<TestCase> generate(Source source) {
-        List<TestCase> tests = new ArrayList<TestCase>();
+    public java.util.Collection<TestCase> generate(Source source) {
+        java.util.Collection<TestCase> tests = new ArrayList<TestCase>();
 
         Query q = QueryFactory.create(RDFUnitUtils.getAllPrefixes() + getQuery());
         QueryExecution qe = source.getExecutionFactory().createQueryExecution(q);
@@ -79,8 +78,9 @@ public class TestAutoGenerator {
         while (rs.hasNext()) {
             QuerySolution row = rs.next();
 
-            List<Binding> bindings = new ArrayList<Binding>();
-            List<String> references = new ArrayList<String>();
+            java.util.Collection<Binding> bindings = new ArrayList<Binding>();
+            java.util.Collection<String> references = new ArrayList<String>();
+            String description = "";
 
             for (PatternParameter p : pattern.getParameters()) {
                 if (row.contains(p.getId())) {
@@ -102,8 +102,17 @@ public class TestAutoGenerator {
                 }
             }
             if (bindings.size() != getPattern().getParameters().size()) {
+                log.error("Bindings for pattern " + pattern.getId() + "  do not match in AutoGenerator: " + this.getURI());
                 continue;
             }
+
+            if (row.get("DESCRIPTION") != null)
+                description = row.get("DESCRIPTION").toString();
+            else {
+                log.error("No ?DESCRIPTION variable found in AutoGenerator: " + this.getURI());
+                continue;
+            }
+
 
             try {
                 PatternBasedTestCase tc = new PatternBasedTestCase(
@@ -114,12 +123,14 @@ public class TestAutoGenerator {
                                 source.getSourceType(),
                                 source.getUri(),
                                 references,
+                                description,
                                 "",
-                                getAnnotations()),
+                                annotations),
                         pattern,
-                        bindings);
+                        bindings
+                );
                 tests.add(tc);
-            } catch (TestCaseException e) {
+            } catch (TestCaseInstantiationException e) {
                 log.error(e.getMessage());
                 e.printStackTrace();
             }
@@ -144,7 +155,4 @@ public class TestAutoGenerator {
         return pattern;
     }
 
-    public List<ResultAnnotation> getAnnotations() {
-        return annotations;
-    }
 }

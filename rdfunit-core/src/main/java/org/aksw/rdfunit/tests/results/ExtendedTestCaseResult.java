@@ -7,7 +7,6 @@ import com.hp.hpl.jena.vocabulary.RDF;
 import org.aksw.rdfunit.services.PrefixService;
 import org.aksw.rdfunit.tests.TestCase;
 
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
@@ -16,7 +15,7 @@ import java.util.List;
  */
 public class ExtendedTestCaseResult extends RLOGTestCaseResult {
 
-    private final List<ResultAnnotation> resultAnnotations;
+    private final java.util.Collection<ResultAnnotation> resultAnnotations;
 
     public ExtendedTestCaseResult(TestCase testCase, String resource, String message, String logLevel) {
         super(testCase, resource, message, logLevel);
@@ -31,10 +30,10 @@ public class ExtendedTestCaseResult extends RLOGTestCaseResult {
     @Override
     public Resource serialize(Model model, String sourceURI) {
         Resource resource = super.serialize(model, sourceURI)
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("ruto") + "ExtendedTestCaseResult"));
+                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("rut") + "ExtendedTestCaseResult"));
 
         for (ResultAnnotation annotation : resultAnnotations) {
-            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "resultAnnotation"), annotation.serializeAsTestCase(model));
+            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "resultAnnotation"), annotation.serializeAsTestCase(model));
         }
 
         return resource;

@@ -3,11 +3,11 @@ package org.aksw.rdfunit.sources;
 import com.hp.hpl.jena.ontology.OntModel;
 import com.hp.hpl.jena.ontology.OntModelSpec;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
-import org.aksw.rdfunit.enums.TestAppliesTo;
-import org.aksw.rdfunit.exceptions.TripleReaderException;
-import org.aksw.rdfunit.io.TripleReader;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
+import org.aksw.rdfunit.enums.TestAppliesTo;
+import org.aksw.rdfunit.exceptions.TripleReaderException;
+import org.aksw.rdfunit.io.DataReader;
 
 /**
  * User: Dimitris Kontokostas
@@ -17,13 +17,13 @@ import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
 public class SchemaSource extends Source {
 
     protected final String schema;
-    protected final TripleReader schemaReader;
+    protected final DataReader schemaReader;
 
-    public SchemaSource(String prefix, String uri, TripleReader schemaReader) {
+    public SchemaSource(String prefix, String uri, DataReader schemaReader) {
         this(prefix, uri, uri, schemaReader);
     }
 
-    public SchemaSource(String prefix, String uri, String schema, TripleReader schemaReader) {
+    public SchemaSource(String prefix, String uri, String schema, DataReader schemaReader) {
         super(prefix, uri);
         this.schema = schema;
         this.schemaReader = schemaReader;
@@ -46,7 +46,7 @@ public class SchemaSource extends Source {
         try {
             schemaReader.read(model);
         } catch (TripleReaderException e) {
-            log.error("Cannot load ontology: " + getSchema() + " Reason: " + e.getMessage());
+            log.error("Cannot load ontology: " + getSchema() + " Reason: " + e.getMessage(),e);
         }
         return new QueryExecutionFactoryModel(model);
     }

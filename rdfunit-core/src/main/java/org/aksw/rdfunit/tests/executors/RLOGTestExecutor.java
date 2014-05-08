@@ -3,13 +3,17 @@ package org.aksw.rdfunit.tests.executors;
 import com.hp.hpl.jena.query.QueryExecution;
 import com.hp.hpl.jena.query.QuerySolution;
 import com.hp.hpl.jena.query.ResultSet;
+import com.hp.hpl.jena.sparql.engine.http.QueryExceptionHTTP;
+import org.aksw.rdfunit.Utils.SparqlUtils;
+import org.aksw.rdfunit.enums.TestCaseResultStatus;
+import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
 import org.aksw.rdfunit.sources.Source;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.results.RLOGTestCaseResult;
 import org.aksw.rdfunit.tests.results.TestCaseResult;
 
 import java.util.ArrayList;
-import java.util.List;
+
 
 /**
  * User: Dimitris Kontokostas
@@ -19,9 +23,9 @@ import java.util.List;
 public class RLOGTestExecutor extends TestExecutor {
 
     @Override
-    protected List<TestCaseResult> executeSingleTest(Source source, TestCase testCase) {
+    protected java.util.Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException {
 
-        List<TestCaseResult> testCaseResults = new ArrayList<TestCaseResult>();
+        java.util.Collection<TestCaseResult> testCaseResults = new ArrayList<TestCaseResult>();
 
         QueryExecution qe = null;
         try {
@@ -32,8 +36,13 @@ public class RLOGTestExecutor extends TestExecutor {
                 testCaseResults.add(generateSingleResult(results.next(), testCase));
 
             }
+        } catch (QueryExceptionHTTP e) {
+            if (SparqlUtils.checkStatusForTimeout(e))
+                throw new TestCaseExecutionException(TestCaseResultStatus.Timeout);
+            else
+                throw new TestCaseExecutionException(TestCaseResultStatus.Error);
         } catch (Exception e) {
-            // TODO check what to do
+            throw new TestCaseExecutionException(TestCaseResultStatus.Error);
         } finally {
             if (qe != null)
                 qe.close();

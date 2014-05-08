@@ -2,9 +2,9 @@ RDFUnit
 ==========
 
 This repository contains the *RDFUnit* -- a tool for test-driven quality evaluation of Linked Data quality.
-Further background information about the underlying *Test Driven Data Quality Methodology* can be looked up in our [submission](http://svn.aksw.org/papers/2014/WWW_Databugger/public.pdf) for World Wide Web Conference 2014.
-The results of this work are available [here](https://github.com/AKSW/RDFUnit/tree/master/data/archive/WWW_2014) .
-This methodology defines 16 data quality test patterns which are SPARQL query templates expressing certain common error conditions.
+Further background information about the underlying *Test Driven Data Quality Methodology* can be looked up in the following publications: [methodology (WWW2014)](http://svn.aksw.org/papers/2014/WWW_Databugger/public.pdf), [demo paper (WWW2014)](http://svn.aksw.org/papers/2014/WWW_Databugger_demo/public.pdf) and [ontology definition (ESWC2014)](http://svn.aksw.org/papers/2014/ESWC_NLP_Cleansing/public.pdf).
+The results of the methodology paper are available [here](https://github.com/AKSW/RDFUnit/tree/master/data/archive/WWW_2014) .
+This methodology defines a set of data quality test patterns which are SPARQL query templates expressing certain common error conditions.
 After having instantiated such patterns for a concrete dataset possible errors of the corresponding kind can be detected. An example would be the following pattern:
 
 ```
@@ -22,7 +22,7 @@ SELECT ?s WHERE {
 ```
 referring to the case where an individual died before it was born.
 
-The RDFUnit tool provides a vocabulary to define such pattern instantiations called *data quality test cases*.
+The RDFUnit tool provides a [vocabulary](http://rdfunit.aksw.org/ns#) to define such pattern instantiations called *data quality test cases*.
 Apart from manual instantiations some of the test patterns can also be instantiated automatically.
 These test cases are then specific to a given schema and can be re-used.
 For now we support the following axioms: 
@@ -45,12 +45,12 @@ and we plan to extend them over time.
 
 To run a data quality assessment of a certain SPARQL endpoint the following steps have to be done:
 
-1. Get/Create manual data quality test cases for the used schemas (optional)
-2. Get/create manual data quality test cases for the evaluated dataset (optional)
-3. Enrich the schema of the considered dataset (This is just in case a light-weight ontology/schema is used that defines only a few schema/ontology constraints that could be used for pattern instantiation. 
-   The enrichment process will try to infer constraints for the dataset based on the actual data using the [DL-Learner](http://dl-learner.org/Projects/DLLearner) tool.) (optional)
-4. Get/Create automatically instantiated test cases for the schemas used inthe evaluation (automatic)
-5. Run the actual assessment based on the tests created
+1. (automatic) RDFUnit automatically instantiates test cases for the given schemas used in the evaluation
+2. (optional improvement) Get/Create manual data quality test cases for the used schemas
+3. (optional improvement) Get/create manual data quality test cases for the evaluated dataset
+4. (optional improvement) Enrich the schema of the considered dataset (This is just in case a light-weight ontology/schema is used that defines only a few schema/ontology constraints that could be used for pattern instantiation.
+   The enrichment process will try to infer constraints for the dataset based on the actual data using the [DL-Learner](http://dl-learner.org/Projects/DLLearner) tool.)
+5. Run the actual assessment based on the test cases created in the previous step
 
 To do so, you first have to clone this repository and install the software using the Maven 3 build tool as follows:
 ```console
@@ -61,23 +61,28 @@ $ mvn clean install
 # argument help
 $ bin/rdfunit -h
 
-# Simple call
-$ bin/rdfunit -d <dataset-uri> -e <endpoint>  -g <graph1|graph2|...>  -s <schema1,schema2,schema3,...>
+# Simple call (SPARQL)
+$ bin/rdfunit -d <dataset-uri> -e <endpoint>  -g <graph1,graph2,...>  -s <schema1,schema2,schema3,...>
 
 # with use of enriched ontnology
-$ bin/rdfunit -d <dataset-uri> -e <endpoint>  -g <graph1|graph2|...>  -s <schema1,schema2,schema3,...> -p <enriched-schema-prefix>
+$ bin/rdfunit -d <dataset-uri> -e <endpoint>  -g <graph1,graph2,...>  -s <schema1,schema2,schema3,...> -p <enriched-schema-prefix>
+
+# Simple call (Dereferencing)
+$ bin/rdfunit -d <dataset-uri> -s <schema1,schema2,schema3,...>
+
+# Simple call (Dereferencing when you want to keep the manual tests for a dataset)
+$ bin/rdfunit -d <dataset-uri> -U <source-URI> -s <schema1,schema2,schema3,...>
 ```
 
-To brief the options, you need to provide:
+Description of the options, you need to provide:
 - of the *dataset* with the general *URI* `http://dbpedia.org`
-- the *SPARQL endpoint* `http://dbpedia.org/sparql`
-- referring to the *graph* `http://dbpedia.org`
+- the SPARQL *endpoint* URL `http://dbpedia.org/sparql`
+- referring to the *graphs* `http://dbpedia.org`
 - that uses the *schemas* `owl`, `dbo`, `foaf`, `dcterms`, `dc`, `skos`, `geo`, `prov`
 - with the *enriched schema prefix* `dbo`
 
 
-
-Note that all schemas are resolved using the LOV dataset and are downloaded automatically.
+Note that all schemas are resolved using the [LOV dataset](http://lov.okfn.org) and are downloaded automatically.
 The framework automatically loads all associated tests (manual, automatic and enriched) that are defined (See next section) and at the moment uses files to store/retrieve them.
 Future versions of the tool will work directly with a SPARQL endpoint.
 

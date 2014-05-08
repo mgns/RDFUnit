@@ -1,15 +1,20 @@
 package org.aksw.rdfunit.tests.executors;
 
+import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.enums.TestCaseExecutionType;
+import org.aksw.rdfunit.enums.TestCaseResultStatus;
+import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
 import org.aksw.rdfunit.sources.Source;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
+import org.aksw.rdfunit.tests.executors.monitors.TestExecutorMonitor;
+import org.aksw.rdfunit.tests.results.RLOGTestCaseResult;
+import org.aksw.rdfunit.tests.results.StatusTestCaseResult;
 import org.aksw.rdfunit.tests.results.TestCaseResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Takes a dataset source and executes the test queries against the endpoint
@@ -20,7 +25,7 @@ public abstract class TestExecutor {
     private static Logger log = LoggerFactory.getLogger(TestExecutor.class);
     private boolean isCanceled = false;
 
-    private final List<TestExecutorMonitor> progressMonitors = new ArrayList<TestExecutorMonitor>();
+    private final java.util.Collection<TestExecutorMonitor> progressMonitors = new ArrayList<TestExecutorMonitor>();
 
     public TestExecutor() {
 
@@ -30,7 +35,7 @@ public abstract class TestExecutor {
         isCanceled = true;
     }
 
-    abstract protected List<TestCaseResult> executeSingleTest(Source source, TestCase testCase);
+    abstract protected java.util.Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException;
 
     public static TestExecutor initExecutorFactory(TestCaseExecutionType executionType) {
         switch (executionType) {
@@ -64,11 +69,33 @@ public abstract class TestExecutor {
                 monitor.singleTestStarted(testCase);
             }
 
-            List<TestCaseResult> results = executeSingleTest(source, testCase);
+            java.util.Collection<TestCaseResult> results = new ArrayList<TestCaseResult>();
+            TestCaseResultStatus status;
+
+            try {
+                results = executeSingleTest(source, testCase);
+            } catch (TestCaseExecutionException e) {
+                status = e.getStatus();
+            }
+
+            if (results.size() == 0) {
+                status = TestCaseResultStatus.Success;
+            } else if (results.size() > 1) {
+                status = TestCaseResultStatus.Fail;
+            } else {
+                status = TestCaseResultStatus.Error; // Default
+                TestCaseResult r = RDFUnitUtils.getFirstItemInCollection(results);
+                if (r instanceof StatusTestCaseResult) {
+                    status = ((StatusTestCaseResult) r).getStatus();
+                } else {
+                    if (r instanceof RLOGTestCaseResult)
+                        status = TestCaseResultStatus.Fail;
+                }
+            }
 
             /*notify end of single test */
             for (TestExecutorMonitor monitor : progressMonitors) {
-                monitor.singleTestExecuted(testCase, results);
+                monitor.singleTestExecuted(testCase, status, results);
             }
 
             if (delay > 0) {

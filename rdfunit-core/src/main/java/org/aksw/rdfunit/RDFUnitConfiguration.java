@@ -1,18 +1,20 @@
 package org.aksw.rdfunit;
 
 import org.aksw.rdfunit.Utils.CacheUtils;
+import org.aksw.rdfunit.io.DataReaderFactory;
 import org.aksw.rdfunit.services.SchemaService;
 import org.aksw.rdfunit.sources.DatasetSource;
 import org.aksw.rdfunit.sources.DumpSource;
 import org.aksw.rdfunit.sources.SchemaSource;
 import org.aksw.rdfunit.sources.Source;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
  * Holds a configuration for a complete test
+ * TODO: Need to adapt the constructors they are too confusing
  * Created: 11/15/13 11:50 AM
  */
 public class RDFUnitConfiguration {
@@ -22,37 +24,53 @@ public class RDFUnitConfiguration {
     private final String endpoint;
 
     // multiple graphs separated with '|'
-    private final String graphs;
+    private final java.util.Collection<String> graphs;
 
-    private final List<SchemaSource> sources;
+    private final String dereferenceUri;
 
+    private final java.util.Collection<SchemaSource> sources;
 
-    public RDFUnitConfiguration(String prefix, String uri, String endpoint, String graphs, List<SchemaSource> sources) {
+    /* For Endpoint source */
+    public RDFUnitConfiguration(String prefix, String uri, String endpoint, java.util.Collection<String> graphs, java.util.Collection<SchemaSource> sources) {
         this.prefix = prefix;
         this.uri = uri;
         this.endpoint = endpoint;
         this.graphs = graphs;
+        this.dereferenceUri = null;
         this.sources = sources;
     }
 
-    public RDFUnitConfiguration(String uri, String endpoint, String graphs, List<SchemaSource> sources) {
-        this(CacheUtils.getAutoPrefixForURI(uri), uri, endpoint, graphs, sources);
-    }
-
-    public RDFUnitConfiguration(String uri, String endpoint, String graphs, String[] sourcePrefixes) {
+    public RDFUnitConfiguration(String uri, String endpoint, java.util.Collection<String> graphs, String[] sourcePrefixes) {
         this(uri, endpoint, graphs, SchemaService.getSourceList(null, Arrays.asList(sourcePrefixes)));
     }
 
-    public RDFUnitConfiguration(String uri, String endpoint, String graphs, String sourcePrefixes) {
+    public RDFUnitConfiguration(String uri, String endpoint, java.util.Collection<String> graphs, String sourcePrefixes) {
         this(uri, endpoint, graphs, sourcePrefixes.split(","));
+    }
+
+    public RDFUnitConfiguration(String uri, String endpoint, java.util.Collection<String> graphs, java.util.Collection<SchemaSource> sources) {
+        this(CacheUtils.getAutoPrefixForURI(uri), uri, endpoint, graphs, sources);
+    }
+
+    /* For dereference source */
+    public RDFUnitConfiguration(String prefix, String uri, String dereferenceUri, java.util.Collection<SchemaSource> sources) {
+        this.prefix = prefix;
+        this.uri = uri;
+        this.endpoint = null;
+        this.graphs = new ArrayList<String>();
+        this.dereferenceUri = dereferenceUri;
+        this.sources = sources;
+    }
+
+    public RDFUnitConfiguration(String uri, String location, java.util.Collection<SchemaSource> sources) {
+        this(CacheUtils.getAutoPrefixForURI(uri), uri, location, sources);
     }
 
     // TODO change it back to Dateset after refactoring of Sources
     public Source getDatasetSource() {
-        if ((endpoint == null || endpoint.equals("")) && (graphs == null || graphs.equals(""))) {
-            return new DumpSource(prefix, uri, sources);
-        }
-        else {
+        if ((endpoint == null || endpoint.equals(""))) {
+            return new DumpSource(prefix, uri, DataReaderFactory.createFileOrDereferenceReader(dereferenceUri), sources);
+        } else {
             return new DatasetSource(prefix, uri, endpoint, graphs, sources);
         }
     }

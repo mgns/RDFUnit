@@ -1,7 +1,11 @@
 package org.aksw.rdfunit.io;
 
 import com.hp.hpl.jena.rdf.model.Model;
+import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
+import org.aksw.rdfunit.Utils.RDFUnitUtils;
+import org.aksw.rdfunit.Utils.SparqlUtils;
 import org.aksw.rdfunit.exceptions.TripleWriterException;
+import org.aksw.rdfunit.services.PrefixService;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -11,7 +15,7 @@ import java.io.FileOutputStream;
  * Writes a Model to a file
  * Created: 11/14/13 1:01 PM
  */
-public class TripleFileWriter extends TripleWriter {
+public class RDFFileWriter extends DataWriter {
     private final String filename;
     private final String filetype;
     private final boolean skipIfExists;
@@ -19,15 +23,15 @@ public class TripleFileWriter extends TripleWriter {
     private final boolean overwrite;
 
 
-    public TripleFileWriter(String filename) {
+    public RDFFileWriter(String filename) {
         this(filename, "TURTLE", false, true, true);
     }
 
-    public TripleFileWriter(String filename, boolean skipIfExists) {
+    public RDFFileWriter(String filename, boolean skipIfExists) {
         this(filename, "TURTLE", skipIfExists, true, true);
     }
 
-    public TripleFileWriter(String filename, String filetype, boolean skipIfExists, boolean createParentDirectories, boolean overwrite) {
+    public RDFFileWriter(String filename, String filetype, boolean skipIfExists, boolean createParentDirectories, boolean overwrite) {
         this.filename = filename;
         this.filetype = filetype;
         this.skipIfExists = skipIfExists;
@@ -36,7 +40,7 @@ public class TripleFileWriter extends TripleWriter {
     }
 
     @Override
-    public void write(Model model) throws TripleWriterException {
+    public void write(QueryExecutionFactory qef) throws TripleWriterException {
         try {
             File file = new File(filename);
 
@@ -51,6 +55,8 @@ public class TripleFileWriter extends TripleWriter {
                 if (parentF != null && !parentF.exists())
                     file.getParentFile().mkdirs();
             }
+            Model model = SparqlUtils.getModelFromQueryFactory(qef);
+            model.setNsPrefixes(PrefixService.getPrefixMap());
             model.write(new FileOutputStream(file), filetype);
 
         } catch (Exception e) {

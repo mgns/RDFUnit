@@ -6,11 +6,9 @@ import com.hp.hpl.jena.rdf.model.ResourceFactory;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
 import org.aksw.rdfunit.Utils.RDFUnitUtils;
-import org.aksw.rdfunit.exceptions.TestCaseException;
+import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
 import org.aksw.rdfunit.patterns.Pattern;
 import org.aksw.rdfunit.services.PrefixService;
-
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
@@ -20,16 +18,16 @@ import java.util.List;
 public class PatternBasedTestCase extends TestCase {
 
     private final Pattern pattern;
-    private final List<Binding> bindings;
+    private final java.util.Collection<Binding> bindings;
 
-    public PatternBasedTestCase(String testURI, TestCaseAnnotation annotation, Pattern pattern, List<Binding> bindings) throws TestCaseException {
+    public PatternBasedTestCase(String testURI, TestCaseAnnotation annotation, Pattern pattern, java.util.Collection<Binding> bindings) throws TestCaseInstantiationException {
         super(testURI, annotation);
         this.pattern = pattern;
         this.bindings = bindings;
 
         // validate
         if (bindings.size() != pattern.getParameters().size()) {
-            throw new TestCaseException("Non valid bindings in TestCase: " + testURI);
+            throw new TestCaseInstantiationException("Non valid bindings in TestCase: " + testURI);
         }
         validateQueries();
     }
@@ -40,13 +38,13 @@ public class PatternBasedTestCase extends TestCase {
         Resource resource = super.serialize(model);
 
         resource
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("ruto") + "PatternBasedTestCase"))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "basedOnPattern"), model.createResource(PrefixService.getPrefix("rutp") + pattern.getId()))
-                .addProperty(RDFS.comment, "SPARQL Query: \n" + RDFUnitUtils.getAllPrefixes() + getSparql() + "\n Pprevalence SPARQL Query :\n" + getSparqlPrevalence());
+                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("rut") + "PatternBasedTestCase"))
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "basedOnPattern"), model.createResource(PrefixService.getPrefix("rutp") + pattern.getId()))
+                .addProperty(RDFS.comment, "SPARQL Query: \n" + RDFUnitUtils.getAllPrefixes() + getSparql() + "\n Prevalence SPARQL Query :\n" + getSparqlPrevalence());
 
 
         for (Binding binding : bindings) {
-            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "binding"), binding.writeToModel(model));
+            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "binding"), binding.writeToModel(model));
         }
 
         return resource;
@@ -62,7 +60,7 @@ public class PatternBasedTestCase extends TestCase {
         return instantiateBindings(bindings, pattern.getSparqlPatternPrevalence());
     }
 
-    private String instantiateBindings(List<Binding> bindings, String query) {
+    private String instantiateBindings(java.util.Collection<Binding> bindings, String query) {
         String sparql = query;
         for (Binding b : bindings) {
             sparql = sparql.replace("%%" + b.getParameterId() + "%%", b.getValue());

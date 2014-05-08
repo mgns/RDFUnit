@@ -6,8 +6,8 @@ import org.aksw.rdfunit.RDFUnit;
 import org.aksw.rdfunit.RDFUnitConfiguration;
 import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.enums.TestCaseExecutionType;
-import org.aksw.rdfunit.io.TripleFileReader;
-import org.aksw.rdfunit.io.TripleReader;
+import org.aksw.rdfunit.io.DataReader;
+import org.aksw.rdfunit.io.RDFFileReader;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
 import org.aksw.rdfunit.tests.executors.TestExecutor;
@@ -58,10 +58,8 @@ public class RDFUnitUISession extends VaadinSession {
 
     public static void initRDFUnit() {
         try {
-            RDFUnitUtils.fillPrefixService(getBaseDir() + "prefixes.ttl");
-
-            TripleReader patternReader = new TripleFileReader(getBaseDir() + "patterns.ttl");
-            TripleReader testGeneratorReader = new TripleFileReader(getBaseDir() + "testGenerators.ttl");
+            DataReader patternReader = RDFUnitUtils.getPatternsFromResource();
+            DataReader testGeneratorReader = RDFUnitUtils.getAutoGeneratorsFromResource();
             getRDFUnit().initPatternsAndGenerators(patternReader, testGeneratorReader);
         } catch (Exception e) {
             //TODO

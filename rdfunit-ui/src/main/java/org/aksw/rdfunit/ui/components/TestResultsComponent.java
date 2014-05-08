@@ -5,16 +5,17 @@ import com.vaadin.data.Item;
 import com.vaadin.data.Property;
 import com.vaadin.server.ExternalResource;
 import com.vaadin.ui.*;
+import org.aksw.rdfunit.Utils.RDFUnitUtils;
+import org.aksw.rdfunit.enums.TestCaseResultStatus;
 import org.aksw.rdfunit.sources.DatasetSource;
 import org.aksw.rdfunit.sources.Source;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
-import org.aksw.rdfunit.tests.executors.TestExecutorMonitor;
+import org.aksw.rdfunit.tests.executors.monitors.TestExecutorMonitor;
 import org.aksw.rdfunit.tests.results.AggregatedTestCaseResult;
 import org.aksw.rdfunit.tests.results.TestCaseResult;
 
 import java.net.URLEncoder;
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
@@ -87,14 +88,14 @@ public class TestResultsComponent extends VerticalLayout implements TestExecutor
     }
 
     @Override
-    public void singleTestExecuted(final TestCase test, final List<TestCaseResult> results) {
+    public void singleTestExecuted(final TestCase test, final TestCaseResultStatus status, final java.util.Collection <TestCaseResult> results) {
         UI.getCurrent().access(new Runnable() {
             @Override
             public void run() {
                 Item item = resultsTable.getItem(test);
                 // Access a property in the item
                 long errors = 0, prevalence = 0;
-                TestCaseResult result = results.get(0);
+                TestCaseResult result = RDFUnitUtils.getFirstItemInCollection(results);
                 if (result != null && result instanceof AggregatedTestCaseResult) {
                     errors = ((AggregatedTestCaseResult) result).getErrorCount();
                     prevalence = ((AggregatedTestCaseResult) result).getPrevalenceCount();
@@ -112,7 +113,9 @@ public class TestResultsComponent extends VerticalLayout implements TestExecutor
                 } else {
                     if (source instanceof DatasetSource) {
                         String endpoint = ((DatasetSource) source).getSparqlEndpoint();
-                        String graph = ((DatasetSource) source).getSparqlGraph();
+                        //TODO check default graph uri when array
+                        java.util.Collection <String> graphs = ((DatasetSource) source).getSparqlGraphs();
+                        String graph = RDFUnitUtils.getFirstItemInCollection(graphs);
                         String query = test.getSparqlQuery() + " LIMIT 10";
                         try {
                             String url = endpoint + "?default-graph-uri=" + URLEncoder.encode(graph, "UTF-8") + "&query=" + URLEncoder.encode(query, "UTF-8");

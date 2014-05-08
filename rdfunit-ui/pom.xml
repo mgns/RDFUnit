@@ -5,7 +5,7 @@
     <parent>
         <artifactId>rdfunit-parent</artifactId>
         <groupId>org.aksw.rdfunit</groupId>
-        <version>0.3</version>
+        <version>0.6-SNAPSHOT</version>
     </parent>
     <artifactId>rdfunit-ui</artifactId>
     <packaging>war</packaging>
@@ -45,6 +45,14 @@
         </pluginRepository>
     </pluginRepositories>
     <dependencies>
+        <dependency>
+            <groupId>org.aksw.rdfunit</groupId>
+            <artifactId>rdfunit-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.aksw.rdfunit</groupId>
+            <artifactId>rdfunit-resources</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.vaadin</groupId>
             <artifactId>vaadin-server</artifactId>
@@ -102,11 +110,7 @@
             <version>3.0.1</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.aksw.rdfunit</groupId>
-            <artifactId>rdfunit-core</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>org.apache.jena</groupId>
             <artifactId>jena-arq</artifactId>
@@ -133,8 +137,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
             <!-- As we are doing "inplace" GWT compilation, ensure the widgetset -->
@@ -218,29 +222,20 @@
                  </configuration>
                  -->
             </plugin>
-            <!-- This plugin copies the configuration in the war file for deployment -->
             <plugin>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>2.6</version>
-                <executions>
-                    <execution>
-                        <id>copy-resources</id>
-                        <!-- here the phase you need -->
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${basedir}/target/rdfunit-ui-${project.version}/data</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>../data</directory>
-                                </resource>
-                            </resources>
-                            <overwrite>true</overwrite>
-                        </configuration>
-                    </execution>
-                </executions>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>2.5</version>
+
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${basedir}/src/main/webapp/data/</directory>
+                            <includes>
+                                <include>**/**</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
             </plugin>
         </plugins>
         <pluginManagement>

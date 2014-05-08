@@ -9,7 +9,6 @@ import org.aksw.rdfunit.services.PrefixService;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * User: Dimitris Kontokostas
@@ -21,40 +20,39 @@ public class TestCaseAnnotation {
     private final String autoGeneratorURI;
     private final TestAppliesTo appliesTo;
     private final String sourceUri;
-    private final List<String> references;
+    private final java.util.Collection<String> references;
+    private final String description;
     private final String testCaseLogLevel;
-    private final List<ResultAnnotation> resultAnnotations;
-    //cache for access
-    private final String annotationMessage;
+    private final java.util.Collection<ResultAnnotation> resultAnnotations;
 
-
-    public TestCaseAnnotation(TestGenerationType generated, String autoGeneratorURI, TestAppliesTo appliesTo, String sourceUri, List<String> references, String testCaseLogLevel, List<ResultAnnotation> resultAnnotations) {
+    public TestCaseAnnotation(TestGenerationType generated, String autoGeneratorURI, TestAppliesTo appliesTo, String sourceUri, java.util.Collection<String> references, String description, String testCaseLogLevel, java.util.Collection<ResultAnnotation> resultAnnotations) {
         this.generated = generated;
         this.autoGeneratorURI = autoGeneratorURI;
         this.appliesTo = appliesTo;
         this.sourceUri = sourceUri;
         this.references = references;
+        this.description = description;
         this.resultAnnotations = new ArrayList<ResultAnnotation>();
-        this.getResultAnnotations().addAll(resultAnnotations);
+        this.resultAnnotations.addAll(resultAnnotations);
+        // need to instantiate result annotations first
         this.testCaseLogLevel = findAnnotationLevel(testCaseLogLevel);
-        // cache
-        this.annotationMessage = findAnnotationMessage();
     }
 
     public Resource serialize(Resource resource, Model model) {
         resource
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "generated"), model.createResource(getGenerated().getUri()))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "testGenerator"), model.createResource(getAutoGeneratorURI()))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "appliesTo"), model.createResource(getAppliesTo().getUri()))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "source"), model.createResource(getSourceUri()))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "testCaseLogLevel"), model.createResource(getTestCaseLogLevel()));
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("dcterms"), "description"), description)
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "generated"), model.createResource(getGenerated().getUri()))
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "testGenerator"), model.createResource(getAutoGeneratorURI()))
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "appliesTo"), model.createResource(getAppliesTo().getUri()))
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "source"), model.createResource(getSourceUri()))
+                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "testCaseLogLevel"), model.createResource(getTestCaseLogLevel()));
 
         for (String r : getReferences()) {
-            resource.addProperty(model.createProperty(PrefixService.getPrefix("ruto") + "references"), ResourceFactory.createResource(r));
+            resource.addProperty(model.createProperty(PrefixService.getPrefix("rut") + "references"), ResourceFactory.createResource(r));
         }
 
-        for (ResultAnnotation annotation : getResultAnnotations()) {
-            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("ruto"), "resultAnnotation"), annotation.serializeAsTestCase(model));
+        for (ResultAnnotation annotation : resultAnnotations) {
+            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "resultAnnotation"), annotation.serializeAsTestCase(model));
         }
 
         return resource;
@@ -76,35 +74,20 @@ public class TestCaseAnnotation {
         return sourceUri;
     }
 
-    public List<String> getReferences() {
+    public java.util.Collection<String> getReferences() {
         return references;
     }
 
-    public String getAnnotationMessage() {
-        return annotationMessage;
-    }
-
-    private String findAnnotationMessage() {
-        if (getResultAnnotations() != null) {
-            for (ResultAnnotation annotation : getResultAnnotations()) {
-                if (annotation.getAnnotationProperty().equals(PrefixService.getPrefix("rlog") + "message")) {
-                    return annotation.getAnnotationValue().toString();
-                }
-            }
-        }
-        return "";
-    }
 
     /*
-     * Get either testCAseLogLevel or generate it from resultAnnotations (and then remove the annotation)
+     * Get either testCaseLogLevel or generate it from resultAnnotations (and then remove the annotation)
      * */
     private String findAnnotationLevel(String testCaseLogLevel) {
 
         String logLevel = testCaseLogLevel;
 
-
         ResultAnnotation pointer = null;
-        for (ResultAnnotation annotation : getResultAnnotations()) {
+        for (ResultAnnotation annotation : resultAnnotations) {
             if (annotation.getAnnotationProperty().equals(PrefixService.getPrefix("rlog") + "level")) {
                 pointer = annotation;
             }
@@ -112,9 +95,8 @@ public class TestCaseAnnotation {
         if (pointer != null) {
             if (logLevel == null || logLevel.equals("")) // Get new value only if testCaseLogLevel doesn't exists
                 logLevel = pointer.getAnnotationValue().toString();
-            getResultAnnotations().remove(pointer); // remove now that we have testCaseLogLevel
+            resultAnnotations.remove(pointer); // remove now that we have testCaseLogLevel
         }
-
 
         return logLevel;
     }
@@ -123,7 +105,11 @@ public class TestCaseAnnotation {
         return testCaseLogLevel;
     }
 
-    public List<ResultAnnotation> getResultAnnotations() {
+    public java.util.Collection<ResultAnnotation> getResultAnnotations() {
         return resultAnnotations;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }
