@@ -1,0 +1,222 @@
+@prefix patrutp: <http://purl.org/hpi/patchr/data/rdfunit-patterns#> .
+@prefix patrut: <http://purl.org/hpi/patchr/ns/rdfunit-core#> .
+@prefix pat: <http://purl.org/hpi/patchr/ns/core#> 
+
+@prefix rutp: <http://rdfunit.aksw.org/data/patterns#> .
+@prefix rut: <http://rdfunit.aksw.org/ns/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+patrutp:FP-RDFTYPE a patrut:FixedParameter ;
+	dcterms:identifier "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" .
+
+patrutp:FP-RDFSDOMAIN a patrut:FixedParameter ;
+	dcterms:identifier "http://www.w3.org/2000/01/rdf-schema#domain" .
+
+patrutp:FP-RDFSRANGE a patrut:FixedParameter ;
+	dcterms:identifier "http://www.w3.org/2000/01/rdf-schema#range" .
+
+patrutp:FP-OWLSYMMETRICPROP a patrut:FixedParameter ;
+	dcterms:identifier "http://www.w3.org/2002/07/owl#SymmetricProperty" .
+
+patrutp:FP-OWLINVFUNCPROP a patrut:FixedParameter ;
+	dcterms:identifier "http://www.w3.org/2002/07/owl#InverseFunctionalProperty" .
+
+
+##########################################
+#### rdfs:range pattern (exists but wrong)
+##########################################
+
+patrutp:RDFSRANGE a patrut:Pattern ;
+	dcterms:identifier "RDFSRANGE" ;
+	patrut:refersTo rutp:RDFSRANGE ;
+	patrut:delete patrutp:RDFSRANGE-D1 ;
+	patrut:insert patrutp:RDFSRANGE-I1 .
+
+# delete the triple Q-S P1 Q-RESOURCE
+patrutp:RDFSRANGE-D1 a patrut:UpdatePattern ;
+	dcterms:identifier "D1" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:RDFSRANGE-Q-S ;
+	patrut:targetPredicate patrutp:RDFSRANGE-P1 ;
+	patrut:targetObject patrutp:RDFSRANGE-Q-RESOURCE ;
+	patrut:confidence "0.45"^^xsd:double .
+
+patrutp:RDFSRANGE-Q-S a patrut:QueryBindingParameter ;
+	dcterms:identifier "s" .
+
+patrutp:RDFSRANGE-P1 a rut:Parameter ;
+    dcterms:identifier "P1" .
+
+patrutp:RDFSRANGE-Q-RESOURCE a patrut:QueryBindingParameter ;
+	dcterms:identifier "resource" .
+
+# insert the triple Q-RESOURCE rdf:type T1
+patrutp:RDFSRANGE-I1 a patrut:UpdatePattern ;
+	dcterms:identifier "I1" ;
+	patrut:action pat:Insert ;
+	patrut:targetSubject patrutp:RDFSRANGE-Q-RESOURCE ;
+	patrut:targetPredicate patrutp:FP-RDFTYPE ;
+	patrut:targetObject patrutp:RDFSRANGE-T1 ;
+	patrut:confidence "0.45"^^xsd:double .
+
+patrutp:RDFSRANGE-T1 a rut:Parameter ;
+    dcterms:identifier "T1" .
+
+# delete the constraint P1 rdfs:range T1
+patrutp:RDFSDOMAIN-D2 a patrut:UpdatePattern ;
+	dcterms:identifier "D2" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:RDFSDOMAIN-P1 ;
+	patrut:targetPredicate patrutp:FP-RDFSRANGE ;
+	patrut:targetObject patrutp:RDFSDOMAIN-T1 ;
+	patrut:confidence "0.1"^^xsd:double .
+
+##########################################
+#### rdfs:domain pattern
+##########################################
+
+patrutp:RDFSDOMAIN a patrut:Pattern ;
+	dcterms:identifier "RDFSDOMAIN" ;
+	patrut:refersTo rutp:RDFSDOMAIN ;
+	patrut:delete patrutp:RDFSDOMAIN-D1 ;
+	patrut:delete patrutp:RDFSDOMAIN-D2 ;
+	patrut:insert patrutp:RDFSDOMAIN-I1 .
+
+# delete the triple Q-RESOURCE P1 V1
+patrutp:RDFSDOMAIN-D1 a patrut:UpdatePattern ;
+	dcterms:identifier "D1" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:RDFSDOMAIN-Q-RESOURCE ;
+	patrut:targetPredicate patrutp:RDFSDOMAIN-P1 ;
+	patrut:targetObject patrutp:RDFSDOMAIN-V1 ;
+	patrut:confidence "0.45"^^xsd:double .
+
+patrutp:RDFSDOMAIN-Q-RESOURCE a patrut:QueryBindingParameter ;
+	dcterms:identifier "resource" .
+
+patrutp:RDFSDOMAIN-P1 a rut:Parameter ;
+    dcterms:identifier "P1" .
+
+patrutp:RDFSDOMAIN-V1 a rut:Parameter ;
+    dcterms:identifier "V1" .
+
+# insert the triple Q-RESOURCE rdf:type T1
+patrutp:RDFSDOMAIN-I1 a patrut:UpdatePattern ;
+	dcterms:identifier "I1" ;
+	patrut:action pat:Insert ;
+	patrut:targetSubject patrutp:RDFSDOMAIN-Q-RESOURCE ;
+	patrut:targetPredicate patrutp:FP-RDFTYPE ;
+	patrut:targetObject patrutp:RDFSDOMAIN-T1 ;
+	patrut:confidence "0.45"^^xsd:double .
+
+patrutp:RDFSDOMAIN-T1 a rut:Parameter ;
+    dcterms:identifier "T1" .
+
+# delete the constraint P1 rdfs:domain T1
+patrutp:RDFSDOMAIN-D2 a patrut:UpdatePattern ;
+	dcterms:identifier "D2" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:RDFSDOMAIN-P1 ;
+	patrut:targetPredicate patrutp:FP-RDFSDOMAIN ;
+	patrut:targetObject patrutp:RDFSDOMAIN-T1 ;
+	patrut:confidence "0.1"^^xsd:double .
+
+################################################################################
+#### symmetric properties involved in only one axiom (only 'one-way'), e.g.
+#### ex:bernd dbo:spouse ex:alice . is mentioned, but not
+#### ex:alice dbo:spouse ex:bernd .
+################################################################################
+
+patrutp:OWLSYMMETRICPROP a patrut:Pattern ;
+	dcterms:identifier "OWLSYMMETRICPROP" ;
+	patrut:refersTo rutp:OWLSYMMETRICPROP ;
+	patrut:delete patrutp:OWLSYMMETRICPROP-D1 ;
+	patrut:insert patrutp:OWLSYMMETRICPROP-I1 ;
+	patrut:delete patrutp:OWLSYMMETRICPROP-D2 .
+
+# delete the triple Q-RESOURCE P1 Q-R1
+patrutp:OWLSYMMETRICPROP-D1 a patrut:UpdatePattern ;
+	dcterms:identifier "D1" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:OWLSYMMETRICPROP-Q-RESOURCE ;
+	patrut:targetPredicate patrutp:OWLSYMMETRICPROP-P1 ;
+	patrut:targetObject patrutp:OWLSYMMETRICPROP-Q-R1 ;
+	patrut:confidence "0.1"^^xsd:double .
+
+patrutp:OWLSYMMETRICPROP-Q-RESOURCE a patrut:QueryBindingParameter ;
+	dcterms:identifier "resource" .
+
+patrutp:OWLSYMMETRICPROP-P1 a rut:Parameter ;
+    dcterms:identifier "P1" .
+
+patrutp:OWLSYMMETRICPROP-Q-R1 a patrut:QueryBindingParameter ;
+    dcterms:identifier "r1" .
+
+# insert the triple Q-R1 P1 Q-RESOURCE
+patrutp:OWLSYMMETRICPROP-I1 a patrut:UpdatePattern ;
+	dcterms:identifier "I1" ;
+	patrut:action pat:Insert ;
+	patrut:targetSubject patrutp:OWLSYMMETRICPROP-Q-R1 ;
+	patrut:targetPredicate patrutp:OWLSYMMETRICPROP-P1 ;
+	patrut:targetObject patrutp:OWLSYMMETRICPROP-Q-RESOURCE ;
+	patrut:confidence "0.8"^^xsd:double .
+
+# delete the constraint P1 rdf:type owl:SymmetricProperty
+patrutp:OWLSYMMETRICPROP-D2 a patrut:UpdatePattern ;
+	dcterms:identifier "D2" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:OWLSYMMETRICPROP-P1 ;
+	patrut:targetPredicate patrutp:FP-RDFTYPE ;
+	patrut:targetObject patrutp:FP-OWLSYMMETRICPROP ;
+	patrut:confidence "0.1"^^xsd:double .
+
+################################################################################
+#### unique value constraint of inverse functional properties
+################################################################################
+
+patrutp:INVFUNC a patrut:Pattern ;
+	dcterms:identifier "INVFUNC" ;
+	patrut:refersTo rutp:INVFUNC ;
+	patrut:delete patrutp:INVFUNC-D1 ;
+	patrut:insert patrutp:INVFUNC-D2 ;
+	patrut:delete patrutp:INVFUNC-D3 .
+
+# delete the triple Q-A P1 Q-RESOURCE
+patrutp:INVFUNC-D1 a patrut:UpdatePattern ;
+	dcterms:identifier "D1" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:INVFUNC-Q-A ;
+	patrut:targetPredicate patrutp:INVFUNC-P1 ;
+	patrut:targetObject patrutp:INVFUNC-Q-RESOURCE ;
+	patrut:confidence "0.25"^^xsd:double .
+
+patrutp:INVFUNC-Q-A a patrut:QueryBindingParameter ;
+	dcterms:identifier "a" .
+
+patrutp:INVFUNC-P1 a rut:Parameter ;
+    dcterms:identifier "P1" .
+
+patrutp:INVFUNC-Q-RESOURCE a patrut:QueryBindingParameter ;
+    dcterms:identifier "resource" .
+
+# delete the triple Q-B P1 Q-RESOURCE
+patrutp:INVFUNC-D2 a patrut:UpdatePattern ;
+	dcterms:identifier "D2" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:INVFUNC-Q-B ;
+	patrut:targetPredicate patrutp:INVFUNC-P1 ;
+	patrut:targetObject patrutp:INVFUNC-Q-RESOURCE ;
+	patrut:confidence "0.25"^^xsd:double .
+
+patrutp:INVFUNC-Q-B a patrut:QueryBindingParameter ;
+	dcterms:identifier "b" .
+
+# delete the constraint P1 rdf:type owl:InverseFunctionalProperty
+patrutp:INVFUNC-D3 a patrut:UpdatePattern ;
+	dcterms:identifier "D3" ;
+	patrut:action pat:Delete ;
+	patrut:targetSubject patrutp:INVFUNC-P1 ;
+	patrut:targetPredicate patrutp:FP-RDFTYPE ;
+	patrut:targetObject patrutp:FP-OWLINVFUNCPROP ;
+	patrut:confidence "0.1"^^xsd:double .
