@@ -5,20 +5,21 @@ import com.vaadin.server.VaadinSession;
 import com.vaadin.shared.ui.label.ContentMode;
 import com.vaadin.ui.*;
 import org.aksw.rdfunit.RDFUnitConfiguration;
-import org.aksw.rdfunit.RDFunitConfigurationFactory;
 import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
 import org.aksw.rdfunit.enums.TestGenerationType;
-import org.aksw.rdfunit.sources.DatasetSource;
+import org.aksw.rdfunit.exceptions.UndefinedSchemaException;
+import org.aksw.rdfunit.sources.EndpointTestSource;
 import org.aksw.rdfunit.sources.SchemaSource;
 import org.aksw.rdfunit.sources.Source;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
 import org.aksw.rdfunit.tests.executors.monitors.TestExecutorMonitor;
-import org.aksw.rdfunit.tests.executors.monitors.TestGeneratorExecutorMonitor;
+import org.aksw.rdfunit.tests.generators.monitors.TestGeneratorExecutorMonitor;
 import org.aksw.rdfunit.tests.results.AggregatedTestCaseResult;
 import org.aksw.rdfunit.tests.results.TestCaseResult;
 import org.aksw.rdfunit.ui.RDFUnitUISession;
+import org.aksw.rdfunit.ui.RDFunitConfigurationFactory;
 import org.aksw.rdfunit.ui.components.SchemaSelectorComponent;
 import org.aksw.rdfunit.ui.components.TestGenerationComponent;
 import org.aksw.rdfunit.ui.components.TestResultsComponent;
@@ -28,10 +29,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
- * User: Dimitris Kontokostas
- * This is a placeholder to keep the main content components
- * TODO everything is clattered in here need to separate many things
- * Created: 11/15/13 8:19 AM
+ * @author Dimitris Kontokostas
+ *         This is a placeholder to keep the main content components
+ *         TODO everything is clattered in here need to separate many things
+ * @since 11/15/13 8:19 AM
  */
 
 public class EndointTestTab extends VerticalLayout {
@@ -63,39 +64,43 @@ public class EndointTestTab extends VerticalLayout {
         //TODO move this away from here
         File f = VaadinSession.getCurrent().getService().getBaseDirectory();
         String baseDir = f.getAbsolutePath() + "/data/";
+        try {
 
-        RDFUnitConfiguration dbpediaConf = RDFunitConfigurationFactory.createDBpediaConfigurationSimple(baseDir);
-        RDFUnitConfiguration dbpediaLConf = RDFunitConfigurationFactory.createDBpediaLiveConfigurationSimple(baseDir);
-        RDFUnitConfiguration dbpediaNLConf = RDFunitConfigurationFactory.createDBpediaNLDatasetSimple(baseDir);
-        RDFUnitConfiguration linkedChemistry = new RDFUnitConfiguration("linkedchemistry.info", "http://rdf.farmbio.uu.se/chembl/sparql", Arrays.asList("http://linkedchemistry.info/chembl/"), "cheminf,cito");
-        RDFUnitConfiguration uriBurner = new RDFUnitConfiguration("http://linkeddata.uriburner.com", "http://linkeddata.uriburner.com/sparql/", new ArrayList<String>(), "foaf,skos,geo,dcterms,prov");
-        RDFUnitConfiguration bbcNature = new RDFUnitConfiguration("http://bbc.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://www.bbc.co.uk/nature/"), "dcterms,po,wo,wlo,foaf");
-        RDFUnitConfiguration musicBrainz = new RDFUnitConfiguration("http://musicbrainz.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://www.bbc.co.uk/nature/"), "ov,mo,foaf");
-        RDFUnitConfiguration umls = new RDFUnitConfiguration("http://umls.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://linkedlifedata.com/resource/umls"), "dcterms,skos,owl");
-        RDFUnitConfiguration umbel = new RDFUnitConfiguration("http://umpel.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://umbel.org"), "vann,skos,owl");
-        RDFUnitConfiguration datasw = new RDFUnitConfiguration("http://datasw.lod.openlinksw.com", "http://lod.openlinksw.com/sparql",Arrays.asList( "http://data.semanticweb.org"), "cal,event,tl,dcterms,bibo,rooms,cal,skos,foaf");
+            RDFUnitConfiguration dbpediaConf = RDFunitConfigurationFactory.createDBpediaConfigurationSimple(baseDir);
+            RDFUnitConfiguration dbpediaLConf = RDFunitConfigurationFactory.createDBpediaLiveConfigurationSimple(baseDir);
+            RDFUnitConfiguration dbpediaNLConf = RDFunitConfigurationFactory.createDBpediaNLDatasetSimple(baseDir);
+            RDFUnitConfiguration linkedChemistry = RDFunitConfigurationFactory.createConfiguration("http://linkedchemistry.info", "http://rdf.farmbio.uu.se/chembl/sparql", Arrays.asList("http://linkedchemistry.info/chembl/"), "cheminf,cito", baseDir);
+            RDFUnitConfiguration uriBurner = RDFunitConfigurationFactory.createConfiguration("http://linkeddata.uriburner.com", "http://linkeddata.uriburner.com/sparql/", new ArrayList<String>(), "foaf,skos,geo,dcterms,prov", baseDir);
+            RDFUnitConfiguration bbcNature = RDFunitConfigurationFactory.createConfiguration("http://bbc.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://www.bbc.co.uk/nature/"), "dcterms,po,wo,wlo,foaf", baseDir);
+            RDFUnitConfiguration musicBrainz = RDFunitConfigurationFactory.createConfiguration("http://musicbrainz.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://www.bbc.co.uk/nature/"), "ov,mo,foaf", baseDir);
+            RDFUnitConfiguration umls = RDFunitConfigurationFactory.createConfiguration("http://umls.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://linkedlifedata.com/resource/umls"), "dcterms,skos,owl", baseDir);
+            RDFUnitConfiguration umbel = RDFunitConfigurationFactory.createConfiguration("http://umpel.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://umbel.org"), "vann,skos,owl", baseDir);
+            RDFUnitConfiguration datasw = RDFunitConfigurationFactory.createConfiguration("http://datasw.lod.openlinksw.com", "http://lod.openlinksw.com/sparql", Arrays.asList("http://data.semanticweb.org"), "cal,event,tl,dcterms,bibo,rooms,cal,skos,foaf", baseDir);
 
 
-        examplesSelect.addItem(uriBurner);
-        examplesSelect.setItemCaption(uriBurner, "Uri Burner");
-        examplesSelect.addItem(bbcNature);
-        examplesSelect.setItemCaption(bbcNature, "BBC Nature (LOD Cache)");
-        examplesSelect.addItem(musicBrainz);
-        examplesSelect.setItemCaption(musicBrainz, "MusicBrainz (LOD Cache)");
-        examplesSelect.addItem(umls);
-        examplesSelect.setItemCaption(umls, "LinkedLifeData UMLS (LOD Cache)");
-        examplesSelect.addItem(umbel);
-        examplesSelect.setItemCaption(umbel, "umbel (LOD Cache)");
-        examplesSelect.addItem(datasw);
-        examplesSelect.setItemCaption(datasw, "data.semanticweb.org (LOD Cache)");
-        examplesSelect.addItem(linkedChemistry);
-        examplesSelect.setItemCaption(linkedChemistry, "LinkedChemistry");
-        examplesSelect.addItem(dbpediaConf);
-        examplesSelect.setItemCaption(dbpediaConf, "DBpedia");
-        examplesSelect.addItem(dbpediaLConf);
-        examplesSelect.setItemCaption(dbpediaLConf, "DBpedia Live");
-        examplesSelect.addItem(dbpediaNLConf);
-        examplesSelect.setItemCaption(dbpediaNLConf, "DBpedia NL");
+            examplesSelect.addItem(uriBurner);
+            examplesSelect.setItemCaption(uriBurner, "Uri Burner");
+            examplesSelect.addItem(bbcNature);
+            examplesSelect.setItemCaption(bbcNature, "BBC Nature (LOD Cache)");
+            examplesSelect.addItem(musicBrainz);
+            examplesSelect.setItemCaption(musicBrainz, "MusicBrainz (LOD Cache)");
+            examplesSelect.addItem(umls);
+            examplesSelect.setItemCaption(umls, "LinkedLifeData UMLS (LOD Cache)");
+            examplesSelect.addItem(umbel);
+            examplesSelect.setItemCaption(umbel, "umbel (LOD Cache)");
+            examplesSelect.addItem(datasw);
+            examplesSelect.setItemCaption(datasw, "data.semanticweb.org (LOD Cache)");
+            examplesSelect.addItem(linkedChemistry);
+            examplesSelect.setItemCaption(linkedChemistry, "LinkedChemistry");
+            examplesSelect.addItem(dbpediaConf);
+            examplesSelect.setItemCaption(dbpediaConf, "DBpedia");
+            examplesSelect.addItem(dbpediaLConf);
+            examplesSelect.setItemCaption(dbpediaLConf, "DBpedia Live");
+            examplesSelect.addItem(dbpediaNLConf);
+            examplesSelect.setItemCaption(dbpediaNLConf, "DBpedia NL");
+        } catch (UndefinedSchemaException e) {
+            //
+        }
 
 
         initInteractions();
@@ -223,7 +228,7 @@ public class EndointTestTab extends VerticalLayout {
 
                 createConfigurationFromUser();
                 if (RDFUnitUISession.getRDFUnitConfiguration() != null) {
-                    Source dataset = RDFUnitUISession.getRDFUnitConfiguration().getDatasetSource();
+                    Source dataset = RDFUnitUISession.getRDFUnitConfiguration().getTestSource();
 
                     RDFUnitUISession.initRDFUnit();
                     RDFUnitUISession.getTestGeneratorExecutor().addTestExecutorMonitor(testGenerationComponent);
@@ -334,7 +339,7 @@ public class EndointTestTab extends VerticalLayout {
 
                 //TODO make this cleaner
                 if (RDFUnitUISession.getRDFUnitConfiguration() != null) {
-                    Source dataset = RDFUnitUISession.getRDFUnitConfiguration().getDatasetSource();
+                    Source dataset = RDFUnitUISession.getRDFUnitConfiguration().getTestSource();
 
                     RDFUnitUISession.getTestExecutor().addTestExecutorMonitor(testResultsComponent);
                     String resultsFile = RDFUnitUISession.getBaseDir() + "results/" + dataset.getPrefix() + ".results.ttl";
@@ -397,7 +402,7 @@ public class EndointTestTab extends VerticalLayout {
             }
 
             @Override
-            public void singleTestExecuted(final TestCase test, final TestCaseResultStatus status, final java.util.Collection <TestCaseResult> results) {
+            public void singleTestExecuted(final TestCase test, final TestCaseResultStatus status, final java.util.Collection<TestCaseResult> results) {
                 UI.getCurrent().access(new Runnable() {
                     @Override
                     public void run() {
@@ -474,8 +479,13 @@ public class EndointTestTab extends VerticalLayout {
 
     private void createConfigurationFromUser() {
 
-        RDFUnitUISession.setRDFUnitConfiguration(
-                new RDFUnitConfiguration(endpointField.getValue().replace("/sparql", ""), endpointField.getValue(), Arrays.asList(graphField.getValue()), schemaSelectorWidget.getSelections()));
+        String datasetURI = endpointField.getValue().replace("/sparql", "");
+
+        RDFUnitConfiguration configuration = new RDFUnitConfiguration(datasetURI, RDFUnitUISession.getBaseDir());
+        configuration.setEndpointConfiguration(endpointField.getValue(), Arrays.asList(graphField.getValue()));
+        configuration.setSchemata(schemaSelectorWidget.getSelections());
+
+        RDFUnitUISession.setRDFUnitConfiguration(configuration);
     }
 
     private void setExampleConfiguration(RDFUnitConfiguration configuration) {
@@ -484,13 +494,15 @@ public class EndointTestTab extends VerticalLayout {
             clearConfigurations();
         }
 
-        Source dataset = configuration.getDatasetSource();
-        if (dataset instanceof DatasetSource) {
-            endpointField.setValue(((DatasetSource) dataset).getSparqlEndpoint());
-            java.util.Collection<String> graphs = ((DatasetSource) dataset).getSparqlGraphs();
-            graphField.setValue(RDFUnitUtils.getFirstItemInCollection(graphs));
-        }
-        else {
+        Source dataset = configuration.getTestSource();
+        if (dataset instanceof EndpointTestSource) {
+            endpointField.setValue(((EndpointTestSource) dataset).getSparqlEndpoint());
+            java.util.Collection<String> graphs = ((EndpointTestSource) dataset).getSparqlGraphs();
+            String graph = RDFUnitUtils.getFirstItemInCollection(graphs);
+            if (graph != null && !graph.isEmpty()) {
+                graphField.setValue(graph);
+            }
+        } else {
             endpointField.setValue("");
             graphField.setValue("");
         }

@@ -1,21 +1,28 @@
 package org.aksw.rdfunit.patterns;
 
+import org.aksw.rdfunit.tests.Binding;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+
 /**
- * User: Dimitris Kontokostas
- * Class that holds a sparqlWherePattern definition
- * Created: 9/16/13 1:14 PM
+ * Represents a SPARQL Pattern
+ *
+ * @author Dimitris Kontokostas
+ *         Class that holds a sparqlWherePattern definition
+ * @since 9/16/13 1:14 PM
  */
 public class Pattern {
     private final String id;
     private final String description;
     private final String sparqlWherePattern;
     private final String sparqlPatternPrevalence;
-    private final java.util.Collection<PatternParameter> parameters;
-    private final java.util.Collection<ResultAnnotation> annotations;
+    private final Collection<PatternParameter> parameters;
+    private final Collection<ResultAnnotation> annotations;
 
-    public Pattern(String id, String description, String sparqlWherePattern, String sparqlPatternPrevalence, java.util.Collection<PatternParameter> parameters, java.util.Collection<ResultAnnotation> annotations) {
+    public Pattern(String id, String description, String sparqlWherePattern, String sparqlPatternPrevalence, Collection<PatternParameter> parameters, Collection<ResultAnnotation> annotations) {
         this.id = id;
         this.description = description;
         this.sparqlWherePattern = sparqlWherePattern;
@@ -25,12 +32,14 @@ public class Pattern {
     }
 
     public boolean isValid() {
-        if (getParameters() == null || getParameters().size() == 0)
+        if (getParameters() == null || getParameters().size() == 0) {
             return false;
+        }
         //check if defined parameters exist is sparql
         for (PatternParameter p : getParameters()) {
-            if (!getSparqlWherePattern().contains("%%" + p.getId() + "%%"))
+            if (!getSparqlWherePattern().contains("%%" + p.getId() + "%%")) {
                 return false;
+            }
         }
         // TODO search if we need more parameters
         return true;
@@ -38,10 +47,33 @@ public class Pattern {
 
     /*
     * Checks if all given arguments exist in the patters and the opposite
-    * */
+    *
     private boolean validateArguments() {
         //TODO implement this method
         return true;
+    } */
+
+
+    /**
+     * Goes through all external annotations and if it finds a literal value with %%XX%%
+     * it replaces it with the binding value
+     */
+    public Collection<ResultAnnotation> getBindedAnnotations(Collection<Binding> bindings) {
+        Collection<ResultAnnotation> finalAnnotations = new ArrayList<>();
+
+        for (ResultAnnotation externalAnnotation: annotations) {
+            ResultAnnotation sanitizedAnnotation = externalAnnotation;
+            if (externalAnnotation.getAnnotationValue().isLiteral()) {
+                String value = externalAnnotation.getAnnotationValue().toString();
+                for (Binding binding: bindings) {
+                    if (value.equals("%%" + binding.getParameterId() + "%%")) {
+                        sanitizedAnnotation = new ResultAnnotation(externalAnnotation.getAnnotationProperty(), binding.getValue());
+                    }
+                }
+            }
+            finalAnnotations.add(sanitizedAnnotation);
+        }
+        return finalAnnotations;
     }
 
     public String getId() {
@@ -60,19 +92,28 @@ public class Pattern {
         return sparqlPatternPrevalence;
     }
 
-    public java.util.Collection<PatternParameter> getParameters() {
-        return parameters;
+    /**
+     * Returns the Pattern Parameters as an immutable Collection
+     *
+     * @return the pattern parameters as an Collections.unmodifiableCollection()
+     */
+    public Collection<PatternParameter> getParameters() {
+        return Collections.unmodifiableCollection(parameters);
     }
 
+    /**
+     * Returns a parameter object from a parameter URI
+     *
+     * @param parameterURI the parameter uRI
+     * @return the parameter object or null if it does not exists
+     */
     public PatternParameter getParameter(String parameterURI) {
         for (PatternParameter parameter : parameters) {
-            if (parameter.getURI().equals(parameterURI))
+            if (parameter.getUri().equals(parameterURI)) {
                 return parameter;
+            }
         }
         return null;
     }
 
-    public java.util.Collection<ResultAnnotation> getAnnotations() {
-        return annotations;
-    }
 }

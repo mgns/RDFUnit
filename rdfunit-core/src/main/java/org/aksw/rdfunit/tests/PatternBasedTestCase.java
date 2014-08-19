@@ -5,22 +5,23 @@ import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.ResourceFactory;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
 import org.aksw.rdfunit.patterns.Pattern;
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
+
+import java.util.Collection;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 1/3/14 3:49 PM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 1/3/14 3:49 PM
  */
 public class PatternBasedTestCase extends TestCase {
 
     private final Pattern pattern;
-    private final java.util.Collection<Binding> bindings;
+    private final Collection<Binding> bindings;
 
-    public PatternBasedTestCase(String testURI, TestCaseAnnotation annotation, Pattern pattern, java.util.Collection<Binding> bindings) throws TestCaseInstantiationException {
+    public PatternBasedTestCase(String testURI, TestCaseAnnotation annotation, Pattern pattern, Collection<Binding> bindings) throws TestCaseInstantiationException {
         super(testURI, annotation);
         this.pattern = pattern;
         this.bindings = bindings;
@@ -38,13 +39,13 @@ public class PatternBasedTestCase extends TestCase {
         Resource resource = super.serialize(model);
 
         resource
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("rut") + "PatternBasedTestCase"))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "basedOnPattern"), model.createResource(PrefixService.getPrefix("rutp") + pattern.getId()))
-                .addProperty(RDFS.comment, "SPARQL Query: \n" + RDFUnitUtils.getAllPrefixes() + getSparql() + "\n Prevalence SPARQL Query :\n" + getSparqlPrevalence());
+                .addProperty(RDF.type, model.createResource(PrefixNSService.getURIFromAbbrev("rut:PatternBasedTestCase")))
+                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:basedOnPattern")), model.createResource(PrefixNSService.getURIFromAbbrev("rutp:" + pattern.getId())))
+                .addProperty(RDFS.comment, "FOR DEBUGGING ONLY: SPARQL Query: \n" + PrefixNSService.getSparqlPrefixDecl() + new QueryGenerationSelectFactory().getSparqlQueryAsString(this) + "\n Prevalence SPARQL Query :\n" + getSparqlPrevalence());
 
 
         for (Binding binding : bindings) {
-            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "binding"), binding.writeToModel(model));
+            resource.addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:binding")), binding.writeToModel(model));
         }
 
         return resource;
@@ -52,18 +53,18 @@ public class PatternBasedTestCase extends TestCase {
 
     @Override
     public String getSparqlWhere() {
-        return instantiateBindings(bindings, pattern.getSparqlWherePattern());
+        return instantiateBindings(bindings, pattern.getSparqlWherePattern()).trim();
     }
 
     @Override
     public String getSparqlPrevalence() {
-        return instantiateBindings(bindings, pattern.getSparqlPatternPrevalence());
+        return instantiateBindings(bindings, pattern.getSparqlPatternPrevalence()).trim();
     }
 
-    private String instantiateBindings(java.util.Collection<Binding> bindings, String query) {
+    private String instantiateBindings(Collection<Binding> bindings, String query) {
         String sparql = query;
         for (Binding b : bindings) {
-            sparql = sparql.replace("%%" + b.getParameterId() + "%%", b.getValue());
+            sparql = sparql.replace("%%" + b.getParameterId() + "%%", b.getValueAsString());
         }
         return sparql;
     }

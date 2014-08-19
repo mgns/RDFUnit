@@ -6,21 +6,21 @@ import org.aksw.rdfunit.RDFUnit;
 import org.aksw.rdfunit.RDFUnitConfiguration;
 import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.enums.TestCaseExecutionType;
-import org.aksw.rdfunit.io.DataReader;
-import org.aksw.rdfunit.io.RDFFileReader;
+import org.aksw.rdfunit.io.RDFReader;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
 import org.aksw.rdfunit.tests.executors.TestExecutor;
-import org.aksw.rdfunit.tests.executors.TestGeneratorExecutor;
+import org.aksw.rdfunit.tests.executors.TestExecutorFactory;
+import org.aksw.rdfunit.tests.generators.TestGeneratorExecutor;
 
 import java.io.File;
 import java.util.ArrayList;
 
 /**
- * User: Dimitris Kontokostas
- * Keeps user session variables
- * TODO refactor
- * Created: 11/15/13 9:52 AM
+ * @author Dimitris Kontokostas
+ *         Keeps user session variables
+ *         TODO refactor
+ * @since 11/15/13 9:52 AM
  */
 public class RDFUnitUISession extends VaadinSession {
 
@@ -40,7 +40,7 @@ public class RDFUnitUISession extends VaadinSession {
         TestGeneratorExecutor testGeneratorExecutor = new TestGeneratorExecutor();
         VaadinSession.getCurrent().setAttribute(TestGeneratorExecutor.class, testGeneratorExecutor);
 
-        TestExecutor testExecutor = TestExecutor.initExecutorFactory(TestCaseExecutionType.aggregatedTestCaseResult);
+        TestExecutor testExecutor = TestExecutorFactory.createTestExecutor(TestCaseExecutionType.aggregatedTestCaseResult);
         VaadinSession.getCurrent().setAttribute(TestExecutor.class, testExecutor);
 
         TestSuite testSuite = new TestSuite(new ArrayList<TestCase>());
@@ -58,8 +58,8 @@ public class RDFUnitUISession extends VaadinSession {
 
     public static void initRDFUnit() {
         try {
-            DataReader patternReader = RDFUnitUtils.getPatternsFromResource();
-            DataReader testGeneratorReader = RDFUnitUtils.getAutoGeneratorsFromResource();
+            RDFReader patternReader = RDFUnitUtils.getPatternsFromResource();
+            RDFReader testGeneratorReader = RDFUnitUtils.getAutoGeneratorsFromResource();
             getRDFUnit().initPatternsAndGenerators(patternReader, testGeneratorReader);
         } catch (Exception e) {
             //TODO

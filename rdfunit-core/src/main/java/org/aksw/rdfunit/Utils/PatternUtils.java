@@ -7,29 +7,128 @@ import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.rdfunit.enums.PatternParameterConstraints;
 import org.aksw.rdfunit.patterns.Pattern;
 import org.aksw.rdfunit.patterns.PatternParameter;
+import org.aksw.rdfunit.services.PrefixNSService;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 9/23/13 11:09 AM
+ * Util functions that instantiate patterns from a QEF
+ *
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 9/23/13 11:09 AM
  */
-public class PatternUtils {
-    public static java.util.Collection<Pattern> instantiatePatternsFromModel(QueryExecutionFactory queryFactory) {
-        java.util.Collection<Pattern> patterns = new ArrayList<Pattern>();
+public final class PatternUtils {
 
-        String sparqlSelectPatterns = RDFUnitUtils.getAllPrefixes() +
+    private PatternUtils() {
+    }
+
+
+    /**
+     * Takes a QEF and tries to instantiate all defined patterns in that QEF
+     *
+     * @param queryFactory the query factory
+     * @return the collection
+     */
+    public static Collection<Pattern> instantiatePatternsFromModel(QueryExecutionFactory queryFactory) {
+
+        final String sparqlSelectPatterns = PrefixNSService.getSparqlPrefixDecl() +
+                "SELECT distinct ?sparqlPattern WHERE { " +
+                " ?sparqlPattern a rut:Pattern . }";
+
+        Collection<String> patternURIs = new ArrayList<>();
+
+
+        QueryExecution qe = null;
+        try {
+            qe = queryFactory.createQueryExecution(sparqlSelectPatterns);
+            ResultSet results = qe.execSelect();
+
+            while (results.hasNext()) {
+                QuerySolution qs = results.next();
+
+                patternURIs.add(qs.get("sparqlPattern").toString());
+            }
+        } finally {
+            if (qe != null) {
+                qe.close();
+            }
+        }
+
+        Collection<Pattern> patterns = new ArrayList<>();
+        for (String patternURI : patternURIs) {
+            patterns.add (getPattern(queryFactory, patternURI));
+        }
+
+        return patterns;
+    }
+
+    /**
+     * Given a QueryExecutionFactory and a pattern URI, it instantiates a new Pattern
+     *
+     * @param queryFactory the query factory
+     * @param patternURI the pattern uRI
+     * @return the pattern object
+     */
+    public static Pattern getPattern(QueryExecutionFactory queryFactory, String patternURI) {
+        final String sparqlSelectPattern = PrefixNSService.getSparqlPrefixDecl() +
                 "SELECT distinct ?sparqlPattern ?id ?desc ?sparql ?sparqlPrev ?variable WHERE { " +
-                " ?sparqlPattern a rut:Pattern ; " +
+                "  <" + patternURI + "> a rut:Pattern ; " +
                 "  dcterms:identifier ?id ; " +
                 "  dcterms:description ?desc ; " +
                 "  rut:sparqlWherePattern ?sparql ; " +
                 "  rut:sparqlPrevalencePattern ?sparqlPrev ; " +
                 "} ORDER BY ?sparqlPattern";
-        String sparqlSelectParameters = RDFUnitUtils.getAllPrefixes() +
+
+        Pattern pattern = null;
+        QueryExecution qe = null;
+        try {
+            qe = queryFactory.createQueryExecution(sparqlSelectPattern);
+            ResultSet results = qe.execSelect();
+
+            if (results.hasNext()) {
+                QuerySolution qs = results.next();
+
+                String id = qs.get("id").toString();
+                String desc = qs.get("desc").toString();
+                String sparql = qs.get("sparql").toString();
+                String sparqlPrev = qs.get("sparqlPrev").toString();
+
+                // Get pattern parameters
+                Collection<PatternParameter> parameters = getPatternParameters(queryFactory, patternURI);
+
+                // Get annotations from TAG URI
+                Collection<ResultAnnotation> annotations = SparqlUtils.getResultAnnotations(queryFactory, patternURI);
+
+                pattern = new Pattern(id, desc, sparql, sparqlPrev, parameters, annotations);
+
+                // if not valid OR if multiple results returns something is wrong
+                if (!pattern.isValid() || results.hasNext()) {
+                    throw new IllegalArgumentException("Pattern not valid: " + pattern.getId());
+                }
+            }
+        } finally {
+            if (qe != null) {
+                qe.close();
+            }
+        }
+
+        return pattern;
+    }
+
+    /**
+     * Instantiates all parameters defined in a Pattern
+     *
+     * @param queryFactory the QEF to query to
+     * @param patternURI the pattern URI
+     * @return a list of pattern parameters for a specific pattern
+     */
+    private static Collection<PatternParameter> getPatternParameters(QueryExecutionFactory queryFactory, String patternURI) {
+
+        final String sparqlSelectParameters = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT distinct ?parameterURI ?id ?constraint ?constraintPattern WHERE { " +
                 " %%PATTERN%%  rut:parameter ?parameterURI . " +
                 " ?parameterURI a rut:Parameter . " +
@@ -38,25 +137,16 @@ public class PatternUtils {
                 " OPTIONAL {?parameterURI rut:constraintPattern ?constraintPattern .}" +
                 " } ";
 
-        QueryExecution qe = queryFactory.createQueryExecution(sparqlSelectPatterns);
-        ResultSet results = qe.execSelect();
+        Collection<PatternParameter> parameters = new ArrayList<>();
 
-        while (results.hasNext()) {
-            QuerySolution qs = results.next();
+        QueryExecution qe = null;
+        try {
+            qe = queryFactory.createQueryExecution(sparqlSelectParameters.replace("%%PATTERN%%", "<" + patternURI + ">"));
+            ResultSet rs = qe.execSelect();
 
-            String patternURI = qs.get("sparqlPattern").toString();
-            String id = qs.get("id").toString();
-            String desc = qs.get("desc").toString();
-            String sparql = qs.get("sparql").toString();
-            String sparqlPrev = qs.get("sparqlPrev").toString();
-            java.util.Collection<PatternParameter> parameters = new ArrayList<PatternParameter>();
+            while (rs.hasNext()) {
 
-            QueryExecution qeNested = queryFactory.createQueryExecution(sparqlSelectParameters.replace("%%PATTERN%%", "<" + patternURI + ">"));
-            ResultSet resultsNested = qeNested.execSelect();
-
-            while (resultsNested.hasNext()) {
-
-                QuerySolution parSol = resultsNested.next();
+                QuerySolution parSol = rs.next();
 
                 String parameterURI = parSol.get("parameterURI").toString();
                 String parameterID = parSol.get("id").toString();
@@ -72,22 +162,12 @@ public class PatternUtils {
                 PatternParameterConstraints constrain = PatternParameterConstraints.resolve(constrainStr);
                 parameters.add(new PatternParameter(parameterURI, parameterID, constrain, constrainPat));
             }
-            qeNested.close();
-
-            // Get annotations from TAG URI
-            java.util.Collection<ResultAnnotation> annotations = SparqlUtils.getResultAnnotations(queryFactory, patternURI);
-
-            Pattern pat = new Pattern(id, desc, sparql, sparqlPrev, parameters, annotations);
-            if (pat.isValid())
-                patterns.add(pat);
-            else {
-                //TODO logger
-                System.err.println("Pattern not valid: " + pat.getId());
-                System.exit(-1);
+        } finally {
+            if (qe != null) {
+                qe.close();
             }
         }
-        qe.close();
 
-        return patterns;
+        return parameters;
     }
 }

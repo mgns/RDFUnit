@@ -1,11 +1,11 @@
 package org.aksw.rdfunit.enums;
 
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
 
 /**
- * User: Dimitris Kontokostas
- * Enumerates the different parameter constrains
- * Created: 9/25/13 10:35 AM
+ * @author Dimitris Kontokostas
+ *         Enumerates the different parameter constrains
+ * @since 9/25/13 10:35 AM
  */
 public enum PatternParameterConstraints {
 
@@ -34,9 +34,16 @@ public enum PatternParameterConstraints {
      */
     None;
 
+    /**
+     * Holds the prefix to resolve this enum
+     */
+    private static final String schemaPrefix = "rut";
+
+    /**
+     * @return a full URI/IRI as a String
+     */
     public String getUri() {
-        // TODO make prefix configurable
-        return PrefixService.getPrefix("rut") + name();
+        return PrefixNSService.getNSFromPrefix(schemaPrefix) + name();
     }
 
     @Override
@@ -44,19 +51,20 @@ public enum PatternParameterConstraints {
         return getUri();
     }
 
+    /**
+     * Resolves a full URI/IRI to an enum
+     *
+     * @param value the URI/IRI we want to resolve
+     * @return the equivalent enum type or @None as default
+     */
     public static PatternParameterConstraints resolve(String value) {
 
-        String s = value.replace(PrefixService.getPrefix("rut"), "");
-        if (s.equals("Resource")) {
-            return Resource;
-        } else if (s.equals("Property")) {
-            return Property;
-        } else if (s.equals("Class")) {
-            return Class;
-        } else if (s.equals("Operator")) {
-            return Operator;
+        String qName = PrefixNSService.getLocalName(value, schemaPrefix);
+        for (PatternParameterConstraints constraint : values()) {
+            if (qName.equals(constraint.name())) {
+                return constraint;
+            }
         }
-
         return None;
     }
 }

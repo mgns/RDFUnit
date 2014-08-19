@@ -2,7 +2,9 @@
 @prefix rut: <http://rdfunit.aksw.org/ns/core#> .
 
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix rdf:        <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix spin: <http://spinrdf.org/spin#> .
 
 
 ##########################################
@@ -17,20 +19,17 @@ rutp:RDFSRANGE a rut:Pattern ;
                                     FILTER EXISTS {
                                         ?resource rdf:type ?anyClass . }
                                     FILTER NOT EXISTS {
-                                        ?resource rdf:type ?T1 .
-                                        ?T1 rdfs:subClassOf+ %%T1%% . }
-                                    FILTER NOT EXISTS {
-                                        ?resource rdf:type %%T1%%  }
+                                        ?resource rdf:type/rdfs:subClassOf* %%T1%%  }
                                 } """ ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE { ?s %%P1%% ?resource .} """ ;
     rut:parameter rutp:RDFSRANGE-P1 ;
     rut:parameter rutp:RDFSRANGE-T1 ;
-#    rut:resultAnnotation [
-#        a rut:ResultAnnotation ;
-#        rut:annotationProperty <http://xxxx> ;
-#        rut:annotationValue <http://YYYY>
-#    ];
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 
@@ -57,11 +56,11 @@ rutp:RDFSRANGE-MISS a rut:Pattern ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE { ?s %%P1%% ?resource .} """ ;
     rut:parameter rutp:RDFSRANGE-MISS-P1 ;
-#    rut:resultAnnotation [
-#        a rut:ResultAnnotation ;
-#        rut:annotationProperty <http://xxxx> ;
-#        rut:annotationValue <http://YYYY>
-#    ];
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 
@@ -84,6 +83,11 @@ rutp:RDFSRANGED a rut:Pattern ;
                                      WHERE { ?resource %%P1%% ?c .} """ ;
     rut:parameter rutp:RDFSRANGED-P1 ;
     rut:parameter rutp:RDFSRANGED-D1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 
@@ -96,25 +100,29 @@ rutp:RDFSRANGED-D1 a rut:Parameter ;
     rut:parameterConstraint rut:None .
 
 ##########################################
-#### rdfs:domain pattern
+#### rdfs:domain pattern (exists but wrong)
 ##########################################
 
 rutp:RDFSDOMAIN a rut:Pattern ;
     dcterms:identifier "RDFSDOMAIN" ;
-    dcterms:description """Emulates the rdfs:domain constrain. It can be extended by using specific values in V1"""@en ;
+    dcterms:description """Checks if the rdfs:domain is wrongly defined. It can be extended by using specific values in V1"""@en ;
     rut:sparqlWherePattern """ {
                                     ?resource %%P1%% %%V1%%
+                                    FILTER EXISTS {
+                                        ?resource rdf:type ?anyClass  }
                                     FILTER NOT EXISTS {
-                                        ?resource rdf:type ?T1 .
-                                        ?T1 rdfs:subClassOf+ %%T1%% . }
-                                    FILTER NOT EXISTS {
-                                        ?resource rdf:type %%T1%%  }
+                                        ?resource rdf:type/rdfs:subClassOf* %%T1%% . }
                                 } """ ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE { ?resource %%P1%% ?c .} """ ;
     rut:parameter rutp:RDFSDOMAIN-P1 ;
     rut:parameter rutp:RDFSDOMAIN-V1 ;
     rut:parameter rutp:RDFSDOMAIN-T1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:RDFSDOMAIN-P1 a rut:Parameter ;
@@ -130,6 +138,39 @@ rutp:RDFSDOMAIN-T1 a rut:Parameter ;
     rut:parameterConstraint rut:Class .
 
 ##########################################
+#### rdfs:domain pattern (missing in the dataset)
+##########################################
+
+rutp:RDFSDOMAIN-MISS a rut:Pattern ;
+    dcterms:identifier "RDFSDOMAIN-MISS" ;
+    dcterms:description """Checks if the rdfs:domain is missing. It can be extended by using specific values in V1"""@en ;
+    rut:sparqlWherePattern """ {
+                                    ?resource %%P1%% %%V1%%
+                                    FILTER NOT EXISTS {
+                                        ?resource rdf:type ?anyClass .}
+                                } """ ;
+    rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
+                                     WHERE { ?resource %%P1%% ?c .} """ ;
+    rut:parameter rutp:RDFSDOMAIN-MISS-P1 ;
+    rut:parameter rutp:RDFSDOMAIN-MISS-V1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
+    .
+
+rutp:RDFSDOMAIN-MISS-P1 a rut:Parameter ;
+    dcterms:identifier "P1" ;
+    rut:parameterConstraint rut:Property .
+
+rutp:RDFSDOMAIN-MISS-V1 a rut:Parameter ;
+    dcterms:identifier "V1" ;
+    rut:parameterConstraint rut:None .
+
+
+
+##########################################
 #### owl:disjointClass pattern  (#TODO fix transitive)
 ##########################################
 
@@ -137,12 +178,17 @@ rutp:OWLDISJC a rut:Pattern ;
     dcterms:identifier "OWLDISJC" ;
     dcterms:description """Emulates the owl:disjointClass constrain"""@en ;
     rut:sparqlWherePattern """ {
-                                    ?resource rdf:type %%T1%% .
-                                    ?resource rdf:type %%T2%% .
+                                    ?resource rdf:type/rdfs:subClassOf* %%T1%% .
+                                    ?resource rdf:type/rdfs:subClassOf* %%T2%% .
                                 } """ ;
     rut:sparqlPrevalencePattern """  """ ;
     rut:parameter rutp:OWLDISJC-T1 ;
     rut:parameter rutp:OWLDISJC-T2 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue rdf:type
+    ];
     .
 
 rutp:OWLDISJC-T1 a rut:Parameter ;
@@ -167,6 +213,11 @@ rutp:OWLDISJP a rut:Pattern ;
     rut:sparqlPrevalencePattern """  """ ;
     rut:parameter rutp:OWLDISJP-P1 ;
     rut:parameter rutp:OWLDISJP-P2 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%""", """%%P2%%"""
+    ];
     .
 
 rutp:OWLDISJP-P1 a rut:Parameter ;
@@ -187,12 +238,17 @@ rutp:OWLCARD a rut:Pattern ;
     rut:sparqlWherePattern """ {
                                     ?resource %%P1%% ?c.
                                 } GROUP BY ?resource
-                                HAVING ( count(?c)  %%OP%% %%V1%% ) """ ;
+                                HAVING ( ( count(?c)  %%OP%% %%V1%% ) && ( count(?c)  != 0 ) ) """ ;    #count!=0 see https://issues.apache.org/jira/browse/JENA-750
     rut:sparqlPrevalencePattern """ SELECT  (count( DISTINCT ?resource) AS ?total)
                                      WHERE { ?resource %%P1%% ?c. }""" ;
     rut:parameter rutp:OWLCARD-P1 ;
     rut:parameter rutp:OWLCARD-OP ;
     rut:parameter rutp:OWLCARD-V1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:OWLCARD-P1 a rut:Parameter ;
@@ -218,27 +274,24 @@ rutp:OWLCARDT a rut:Pattern ;
     dcterms:description """Emulates the owl:cardinality constrain on a Class"""@en ;
     rut:sparqlWherePattern """ {
 									{
-                                    	?resource rdf:type %%T1%%.
-                                    	?resource %%P1%% ?c.
-									} UNION {
-										?resource rdf:type ?t1.
-										?t1 rdfs:subClassOf+ %%T1%%.
+                                    	?resource rdf:type/rdfs:subClassOf* %%T1%%.
                                     	?resource %%P1%% ?c.
 									}
                                 } GROUP BY ?resource
-                                HAVING ( count(?c)  %%OP%% %%V1%% ) """ ;
+                                HAVING ( ( count(?c)  %%OP%% %%V1%% ) && ( count(?c)  != 0 ) ) """ ;  #count!=0 see https://issues.apache.org/jira/browse/JENA-750
     rut:sparqlPrevalencePattern """ SELECT  (count( DISTINCT ?resource) AS ?total) WHERE { {
-                                    	?resource rdf:type %%T1%%.
-                                    	?resource %%P1%% ?c.
-									} UNION {
-										?resource rdf:type ?t1.
-										?t1 rdfs:subClassOf+ %%T1%%.
+                                    	?resource rdf:type/rdfs:subClassOf* %%T1%%.
                                     	?resource %%P1%% ?c.
 									} }""" ;
     rut:parameter rutp:OWLCARDT-T1 ;
     rut:parameter rutp:OWLCARDT-P1 ;
     rut:parameter rutp:OWLCARDT-OP ;
     rut:parameter rutp:OWLCARDT-V1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:OWLCARDT-T1 a rut:Parameter ;
@@ -268,21 +321,20 @@ rutp:TYPRODEP a rut:Pattern ;
     dcterms:description """ A property must or must not exist in a class instance. Use 'NOT' for existence and '' for non existence"""@en ;
     rut:sparqlWherePattern """ {
                                     {
-										?resource rdf:type %%T1%% .
+										?resource rdf:type/rdfs:subClassOf* %%T1%% .
                                     	FILTER %%NOT%% EXISTS {?resource %%P1%% ?v }
-									} UNION {
-										?resource rdf:type ?t1 . 
-										?t1 rdfs:subClassOf+ %%T1%%
-										FILTER %%NOT%% EXISTS {?resource %%P1%% ?v }
 									}
                                 } """ ;
     rut:sparqlPrevalencePattern """ SELECT  (count( DISTINCT ?resource) AS ?total)
-                                     WHERE { {?resource rdf:type %%T1%% .}
-									 		UNION { ?resource rdf:type ?t1 . 
-											?t1 rdfs:subClassOf+ %%T1%% .} } """ ;
+                                     WHERE { ?resource rdf:type/rdfs:subClassOf* %%T1%% .} """ ;
     rut:parameter rutp:TYPRODEP-T1 ;
     rut:parameter rutp:TYPRODEP-NOT ;
     rut:parameter rutp:TYPRODEP-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:TYPRODEP-T1 a rut:Parameter ;
@@ -313,6 +365,11 @@ rutp:INVFUNC a rut:Pattern ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE { ?a %%P1%% ?resource . }""" ;
     rut:parameter rutp:INVFUNC-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:INVFUNC-P1 a rut:Parameter ;
@@ -326,24 +383,22 @@ rutp:INVFUNC-P1 a rut:Parameter ;
 rutp:INVFUNCT a rut:Pattern ;
     dcterms:identifier "INVFUNCT" ;
     dcterms:description """ Unique value constraint of inverse functional properties (constraint on a class) """@en ;
-    rut:sparqlWherePattern """ {   {
-                                        ?a %%P1%% ?resource ;
-                                           a %%T1%% .
-                                        ?b %%P1%% ?resource ;
-                                           a %%T1%% .
-                                    } UNION {
-                                        ?a %%P1%% ?resource ;
-                                            rdfs:subClassOf+ %%T1%% .
-                                        ?b %%P1%% ?resource ;
-                                            rdfs:subClassOf+ %%T1%% .
-                                    }
+    rut:sparqlWherePattern """ {
+                                    ?a %%P1%% ?resource ;
+                                       rdf:type/rdfs:subClassOf* %%T1%% .
+                                    ?b %%P1%% ?resource ;
+                                       rdf:type/rdfs:subClassOf* %%T1%% .
                                     FILTER (?a != ?b)
                                 } """ ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
-                                     WHERE { {?a %%P1%% ?resource ; a %%T1%% }
-                                       UNION {?a %%P1%% ?resource ; rdfs:subClassOf+ %%T1%% .} }""" ;
+                                     WHERE {?a %%P1%% ?resource ; rdf:type/rdfs:subClassOf* %%T1%% }""" ;
     rut:parameter rutp:INVFUNCT-P1 ;
     rut:parameter rutp:INVFUNCT-T1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:INVFUNCT-P1 a rut:Parameter ;
@@ -370,6 +425,11 @@ rutp:OWLSYMMETRICPROP a rut:Pattern ;
     rut:sparqlPrevalencePattern """ SELECT (count( *) AS ?total)
                                      WHERE { ?r1 %%P1%% ?r2 . }""" ;
     rut:parameter rutp:OWLSYMMETRICPROP-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:OWLSYMMETRICPROP-P1 a rut:Parameter ;
@@ -392,6 +452,11 @@ rutp:OWLASYMMETRICPROP a rut:Pattern ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE {?resource %%P1%% ?r2 .}""";
     rut:parameter rutp:OWLASYMMETRICPROP-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:OWLASYMMETRICPROP-P1 a rut:Parameter ;
@@ -417,6 +482,11 @@ rutp:OWLTRANSPROP a rut:Pattern ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE {?resource %%P1%% ?r2 .}""" ;
     rut:parameter rutp:OWLTRANSPROP-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:OWLTRANSPROP-P1 a rut:Parameter ;
@@ -437,6 +507,11 @@ rutp:OWLIRREFLEXIVE a rut:Pattern ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE {?resource %%P1%% ?o .}""" ;
     rut:parameter rutp:OWLIRREFLEXIVE-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:OWLIRREFLEXIVE-P1 a rut:Parameter ;
@@ -463,6 +538,11 @@ rutp:COMP a rut:Pattern ;
     rut:parameter rutp:COMP-P1 ;
     rut:parameter rutp:COMP-P2 ;
     rut:parameter rutp:COMP-OP ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%""", """%%P2%%"""
+    ];
     .
 
 rutp:COMP-P1 a rut:Parameter ;
@@ -495,6 +575,11 @@ rutp:MATCH a rut:Pattern ;
     rut:parameter rutp:MATCH-P1 ;
     rut:parameter rutp:MATCH-OP ;
     rut:parameter rutp:MATCH-REGEX ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:MATCH-P1 a rut:Parameter ;
@@ -519,13 +604,13 @@ rutp:LITRAN a rut:Pattern ;
     dcterms:identifier "LITRAN" ;
     dcterms:description """Literal in specific range"""@en ;
     rut:sparqlWherePattern """ {
-                                    ?resource a      %%T1%% .
+                                    ?resource rdf:type/rdfs:subClassOf* %%T1%% .
                                     ?resource %%P1%% ?value .
                                     FILTER( %%NOP%% ( ?value > %%valueMin%% &&
                                                       ?value < %%valueMax%% )) .
                                 }""" ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total) WHERE {
-                                        ?resource a      %%T1%% .
+                                        ?resource rdf:type/rdfs:subClassOf* %%T1%% .
                                         ?resource %%P1%% ?value .
                                      }""" ;
     rut:parameter rutp:LITRAN-T1 ;
@@ -533,6 +618,11 @@ rutp:LITRAN a rut:Pattern ;
     rut:parameter rutp:LITRAN-NOP ;
     rut:parameter rutp:LITRAN-valueMin ;
     rut:parameter rutp:LITRAN-valueMax ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:LITRAN-T1 a rut:Parameter ;
@@ -567,14 +657,19 @@ rutp:TYPDEP a rut:Pattern ;
     dcterms:identifier "TYPDEP" ;
     dcterms:description """Resource is of type A and not of type B"""@en ;
     rut:sparqlWherePattern """ {
-                                    ?resource rdf:type %%T1%% .
-                                    FILTER NOT EXISTS {?resource rdf:type %%T2%%}
+                                    ?resource rdf:type/rdfs:subClassOf* %%T1%% .
+                                    FILTER NOT EXISTS {?resource rdf:type/rdfs:subClassOf* %%T2%%}
                                 } """ ;
       
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
-                                     WHERE { ?resource rdf:type %%T1%% . }""" ;
+                                     WHERE { ?resource rdf:type/rdfs:subClassOf* %%T1%% . }""" ;
     rut:parameter rutp:TYPDEP-T1 ;
     rut:parameter rutp:TYPDEP-T2 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue rdf:type
+    ];
     .
 
 rutp:TYPDEP-T1 a rut:Parameter ;
@@ -603,6 +698,11 @@ rutp:PVT a rut:Pattern ;
     rut:parameter rutp:PVT-P1 ;
     rut:parameter rutp:PVT-V1 ;
     rut:parameter rutp:PVT-P2 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%""", """%%P2"""
+    ];
     .
 
 rutp:PVT-P1 a rut:Parameter ;
@@ -619,7 +719,7 @@ rutp:PVT-P2 a rut:Parameter ;
 
 ################################################################################
 #### TRIPLE
-#### Resource has ValueA for PropertyB
+#### Resource has ValueA for PropertyA
 ################################################################################
 
 rutp:TRIPLE a rut:Pattern ;
@@ -632,6 +732,11 @@ rutp:TRIPLE a rut:Pattern ;
                                      WHERE { ?resource %%P1%% ?value . }""" ;
     rut:parameter rutp:TRIPLE-P1 ;
     rut:parameter rutp:TRIPLE-V1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
     .
 
 rutp:TRIPLE-P1 a rut:Parameter ;
@@ -652,15 +757,20 @@ rutp:ONELANG a rut:Pattern ;
     dcterms:identifier "ONELANG" ;
     dcterms:description """Resource has more than one plain literal of a certain language assigned"""@en ;
     rut:sparqlWherePattern """ {
-                                    ?resource %%P1%% ?c .
-                                    BIND ( lang(?c) AS ?l ) .
-                                    FILTER (isLiteral (?c) && lang(?c) = '%%V1%%') .
-                                } GROUP BY ?resource
-                                HAVING ( COUNT (?l) > 1 ) """ ;
+                                    ?resource %%P1%% ?c1 ;
+                                              %%P1%% ?c2 .
+                                    FILTER ( (?c1 != ?c2) && (lang(?c1) = '%%V1%%') && (lang(?c1) = lang(?c2)) ) .
+                                } """ ;
     rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
                                      WHERE { ?resource %%P1%% ?c .}""" ;
     rut:parameter rutp:ONELANG-P1 ;
-    rut:parameter rutp:ONELANG-V1 .
+    rut:parameter rutp:ONELANG-V1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
+    .
 
 rutp:ONELANG-P1 a rut:Parameter ;
     dcterms:identifier "P1" ;
@@ -669,5 +779,35 @@ rutp:ONELANG-P1 a rut:Parameter ;
 rutp:ONELANG-V1 a rut:Parameter ;
     dcterms:identifier "V1" ;
     rut:parameterConstraint rut:None .
+
+
+################################################################################
+#### ONELANGGLOBAL
+#### Resource has more than one plain literal of a certain language assigned
+#### (e.g. more than one foaf:name in english)
+################################################################################
+
+rutp:ONELANGGLOBAL a rut:Pattern ;
+    dcterms:identifier "ONELANGGLOBAL" ;
+    dcterms:description """Resource has more than one plain literal of any language assigned"""@en ;
+    rut:sparqlWherePattern """ {
+                                    ?resource %%P1%% ?c1 ;
+                                              %%P1%% ?c2 .
+                                    FILTER ( (?c1 != ?c2) && (lang(?c1) = lang(?c2)) ) .
+                                } """ ;
+    rut:sparqlPrevalencePattern """ SELECT (count( DISTINCT ?resource) AS ?total)
+                                     WHERE { ?resource %%P1%% ?c .}""" ;
+    rut:parameter rutp:ONELANGGLOBAL-P1 ;
+    rut:resultAnnotation [
+        a rut:ResultAnnotation ;
+        rut:annotationProperty spin:violationPath ;
+        rut:annotationValue """%%P1%%"""
+    ];
+    .
+
+rutp:ONELANGGLOBAL-P1 a rut:Parameter ;
+    dcterms:identifier "P1" ;
+    rut:parameterConstraint rut:Property .
+
 
 

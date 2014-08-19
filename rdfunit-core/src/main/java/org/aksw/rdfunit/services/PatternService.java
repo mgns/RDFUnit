@@ -2,16 +2,17 @@ package org.aksw.rdfunit.services;
 
 import org.aksw.rdfunit.patterns.Pattern;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * User: Dimitris Kontokostas
- * class that contains instances of all patterns
- * Created: 9/20/13 2:52 PM
+ * @author Dimitris Kontokostas
+ *         class that contains instances of all patterns
+ * @since 9/20/13 2:52 PM
  */
-public class PatternService {
-    final private static HashMap<String, Pattern> patterns = new HashMap<String, Pattern>();
+public final class PatternService {
+    final private static Map<String, Pattern> patterns = new ConcurrentHashMap<>();
 
 
     private PatternService() {

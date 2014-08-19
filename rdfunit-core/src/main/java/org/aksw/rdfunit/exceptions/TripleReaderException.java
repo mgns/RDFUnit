@@ -1,14 +1,15 @@
 package org.aksw.rdfunit.exceptions;
 
 /**
- * User: Dimitris Kontokostas
- * Exceptions for readers that cannot read()
- * Created: 11/14/13 8:35 AM
+ * @author Dimitris Kontokostas
+ *         Exceptions for readers that cannot read()
+ * @since 11/14/13 8:35 AM
  */
 public class TripleReaderException extends Exception {
 
 
     public TripleReaderException() {
+        super();
     }
 
     public TripleReaderException(String message, Throwable e) {

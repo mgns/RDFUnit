@@ -8,12 +8,12 @@ import com.hp.hpl.jena.vocabulary.RDF;
 import org.aksw.rdfunit.enums.PatternParameterConstraints;
 import org.aksw.rdfunit.exceptions.BindingException;
 import org.aksw.rdfunit.patterns.PatternParameter;
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
 
 /**
- * User: Dimitris Kontokostas
- * Holds a parameter binding between a pattern parameter and a test instance
- * Created: 9/30/13 8:28 AM
+ * @author Dimitris Kontokostas
+ *         Holds a parameter binding between a pattern parameter and a test instance
+ * @since 9/30/13 8:28 AM
  */
 public class Binding {
     private final PatternParameter parameter;
@@ -24,17 +24,23 @@ public class Binding {
         this.value = value;
 
         //Validate bibding
-        if (!validateType())
+        if (!validateType()) {
             throw new BindingException("Binding is of incorrect constraint type");
+        }
     }
 
-    public String getValue() {
+    public String getValueAsString() {
         if (value.isResource()) {
             // some vocabularies use spaces in uris
             return "<" + value.toString().trim().replace(" ", "") + ">";
 
-        } else
+        } else {
             return value.toString();
+        }
+    }
+
+    public RDFNode getValue() {
+        return value;
     }
 
     public String getParameterId() {
@@ -43,26 +49,24 @@ public class Binding {
 
     public Resource writeToModel(Model model) {
         return model.createResource()
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("rut") + "Binding"))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "parameter"), model.createResource(parameter.getURI()))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "bindingValue"), value);
+                .addProperty(RDF.type, model.createResource(PrefixNSService.getURIFromAbbrev("rut:Binding")))
+                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:parameter")), model.createResource(parameter.getUri()))
+                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:bindingValue")), value);
 
     }
 
     private boolean validateType() {
         PatternParameterConstraints pc = parameter.getConstrain();
-        if (pc.equals(PatternParameterConstraints.None))
+        if (pc.equals(PatternParameterConstraints.None)) {
             return true;
-        if (value.isResource()) {
-            if (pc.equals(PatternParameterConstraints.Resource) ||
-                    pc.equals(PatternParameterConstraints.Property) ||
-                    pc.equals(PatternParameterConstraints.Class))
-                return true;
         }
-        if (value.isLiteral()) {
-            if (pc.equals(PatternParameterConstraints.Operator)) {
-                return true;
-            }
+        if (value.isResource() && pc.equals(PatternParameterConstraints.Resource) ||
+                pc.equals(PatternParameterConstraints.Property) ||
+                pc.equals(PatternParameterConstraints.Class)) {
+            return true;
+        }
+        if (value.isLiteral() && pc.equals(PatternParameterConstraints.Operator)) {
+            return true;
         }
 
         // TODO check for more
@@ -70,8 +74,9 @@ public class Binding {
     }
 
     private boolean validatePattern() {
-        if (parameter.getConstraintPattern().equals(""))
+        if (parameter.getConstraintPattern().equals("")) {
             return true;
+        }
         // TODO Check the pattern
         return true;
     }

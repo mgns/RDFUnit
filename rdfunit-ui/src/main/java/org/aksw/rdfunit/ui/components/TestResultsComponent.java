@@ -7,8 +7,9 @@ import com.vaadin.server.ExternalResource;
 import com.vaadin.ui.*;
 import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
-import org.aksw.rdfunit.sources.DatasetSource;
+import org.aksw.rdfunit.sources.EndpointTestSource;
 import org.aksw.rdfunit.sources.Source;
+import org.aksw.rdfunit.tests.QueryGenerationSelectFactory;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
 import org.aksw.rdfunit.tests.executors.monitors.TestExecutorMonitor;
@@ -18,9 +19,9 @@ import org.aksw.rdfunit.tests.results.TestCaseResult;
 import java.net.URLEncoder;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 11/20/13 5:20 PM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 11/20/13 5:20 PM
  */
 public class TestResultsComponent extends VerticalLayout implements TestExecutorMonitor {
 
@@ -76,7 +77,7 @@ public class TestResultsComponent extends VerticalLayout implements TestExecutor
             @Override
             public void run() {
                 Label testLabel = new Label(test.getTestURI());
-                testLabel.setDescription("<pre>  \n" + SafeHtmlUtils.htmlEscape(test.getSparql()).replaceAll(" +", " ") + "\n  </pre>");
+                testLabel.setDescription("<pre>  \n" + SafeHtmlUtils.htmlEscape(new QueryGenerationSelectFactory().getSparqlQueryAsString(test)).replaceAll(" +", " ") + "\n  </pre>");
                 resultsTable.addItem(new Object[]{
                         "R", testLabel, new Label(""), ""}, test);
 
@@ -88,7 +89,7 @@ public class TestResultsComponent extends VerticalLayout implements TestExecutor
     }
 
     @Override
-    public void singleTestExecuted(final TestCase test, final TestCaseResultStatus status, final java.util.Collection <TestCaseResult> results) {
+    public void singleTestExecuted(final TestCase test, final TestCaseResultStatus status, final java.util.Collection<TestCaseResult> results) {
         UI.getCurrent().access(new Runnable() {
             @Override
             public void run() {
@@ -111,12 +112,12 @@ public class TestResultsComponent extends VerticalLayout implements TestExecutor
                             item.getItemProperty("Errors");
                     errorsProperty.setValue(new Label("-"));
                 } else {
-                    if (source instanceof DatasetSource) {
-                        String endpoint = ((DatasetSource) source).getSparqlEndpoint();
+                    if (source instanceof EndpointTestSource) {
+                        String endpoint = ((EndpointTestSource) source).getSparqlEndpoint();
                         //TODO check default graph uri when array
-                        java.util.Collection <String> graphs = ((DatasetSource) source).getSparqlGraphs();
+                        java.util.Collection<String> graphs = ((EndpointTestSource) source).getSparqlGraphs();
                         String graph = RDFUnitUtils.getFirstItemInCollection(graphs);
-                        String query = test.getSparqlQuery() + " LIMIT 10";
+                        String query = new QueryGenerationSelectFactory().getSparqlQueryAsString(test) + " LIMIT 10";
                         try {
                             String url = endpoint + "?default-graph-uri=" + URLEncoder.encode(graph, "UTF-8") + "&query=" + URLEncoder.encode(query, "UTF-8");
                             Link link = new Link("" + errors, new ExternalResource(url));

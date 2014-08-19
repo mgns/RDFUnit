@@ -1,10 +1,10 @@
 package org.aksw.rdfunit.tests.executors;
 
 import org.aksw.rdfunit.Utils.RDFUnitUtils;
-import org.aksw.rdfunit.enums.TestCaseExecutionType;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
 import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
 import org.aksw.rdfunit.sources.Source;
+import org.aksw.rdfunit.tests.QueryGenerationFactory;
 import org.aksw.rdfunit.tests.TestCase;
 import org.aksw.rdfunit.tests.TestSuite;
 import org.aksw.rdfunit.tests.executors.monitors.TestExecutorMonitor;
@@ -15,43 +15,69 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 /**
- * Takes a dataset source and executes the test queries against the endpoint
- * Description
- * Created: 9/30/13 11:11 AM
+ * Takes a dataset source and executes the test queries against the endpoint.
+ *
+ * @author Dimitris Kontokostas
+ * @since 9 /30/13 11:11 AM
  */
 public abstract class TestExecutor {
-    private static Logger log = LoggerFactory.getLogger(TestExecutor.class);
-    private boolean isCanceled = false;
+    private static final Logger log = LoggerFactory.getLogger(TestExecutor.class);
+    /**
+     * Used in {@code cancel()} to stop the current execution
+     */
+    private volatile boolean isCanceled = false;
 
-    private final java.util.Collection<TestExecutorMonitor> progressMonitors = new ArrayList<TestExecutorMonitor>();
+    /**
+     * Collection of subscribers in the current test execution
+     */
+    private final Collection<TestExecutorMonitor> progressMonitors = new ArrayList<>();
 
-    public TestExecutor() {
+    /**
+     * Used to transform TestCases to SPARQL Queries
+     */
+    protected final QueryGenerationFactory queryGenerationFactory;
 
+    /**
+     * Instantiates a new Test executor.
+     */
+    public TestExecutor(QueryGenerationFactory queryGenerationFactory) {
+        this.queryGenerationFactory = queryGenerationFactory;
     }
 
+    /**
+     * Cancel the current execution. After the current query that is executed, the test execution is halted
+     */
     public void cancel() {
         isCanceled = true;
     }
 
-    abstract protected java.util.Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException;
+    /**
+     * Executes single test.
+     *
+     * @param source the source
+     * @param testCase the test case
+     * @return the java . util . collection
+     * @throws TestCaseExecutionException the test case execution exception
+     */
+    abstract protected Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException;
 
-    public static TestExecutor initExecutorFactory(TestCaseExecutionType executionType) {
-        switch (executionType) {
-            case statusTestCaseResult:
-                return new StatusTestExecutor();
-            case aggregatedTestCaseResult:
-                return new AggregatedTestExecutor();
-            case rlogTestCaseResult:
-                return new RLOGTestExecutor();
-            case extendedTestCaseResult:
-                return new ExtendedTestExecutor();
-        }
-        return null;
-    }
 
-    public void execute(Source source, TestSuite testSuite, int delay) {
+    /**
+     * Test execution for a Source against a TestSuite
+     *
+     * @param source the source we want to test
+     * @param testSuite the test suite we test the source against
+     * @param delay delay between sparql queries
+     * @return true if all TC executed successfully, false otherwise
+     */
+    public boolean execute(Source source, TestSuite testSuite, int delay) {
+        // used to hold the whole status of the execution
+        boolean success = true;
+
+        // reset to false for this execution
         isCanceled = false;
 
         /*notify start of testing */
@@ -69,14 +95,30 @@ public abstract class TestExecutor {
                 monitor.singleTestStarted(testCase);
             }
 
-            java.util.Collection<TestCaseResult> results = new ArrayList<TestCaseResult>();
+            Collection<TestCaseResult> results = new ArrayList<>();
             TestCaseResultStatus status;
+
+            // Test case execution and debug logging
+            long executionTimeStartInMS = System.currentTimeMillis();
+            log.debug(testCase.getAbrTestURI()+ " : started execution");
 
             try {
                 results = executeSingleTest(source, testCase);
             } catch (TestCaseExecutionException e) {
                 status = e.getStatus();
+            } catch (Exception e) {
+                String message = "Unknown error while executing TC: " + testCase.getAbrTestURI();
+                log.error(message, e);
+                if (e instanceof RuntimeException) {
+                    throw new RuntimeException(message, e);
+                }
+                else {
+                    status = TestCaseResultStatus.Error;
+                }
             }
+
+            long executionTimeEndInMS = System.currentTimeMillis();
+            log.debug(testCase.getAbrTestURI()+ " : execution completed in " + (executionTimeEndInMS - executionTimeStartInMS) + "ms");
 
             if (results.size() == 0) {
                 status = TestCaseResultStatus.Success;
@@ -88,10 +130,17 @@ public abstract class TestExecutor {
                 if (r instanceof StatusTestCaseResult) {
                     status = ((StatusTestCaseResult) r).getStatus();
                 } else {
-                    if (r instanceof RLOGTestCaseResult)
+                    if (r instanceof RLOGTestCaseResult) {
                         status = TestCaseResultStatus.Fail;
+                    }
                 }
             }
+
+            // If at least one TC fails the whole TestSuite fails
+            if (status != TestCaseResultStatus.Success) {
+                success = false;
+            }
+
 
             /*notify end of single test */
             for (TestExecutorMonitor monitor : progressMonitors) {
@@ -105,18 +154,31 @@ public abstract class TestExecutor {
                     // do nothing
                 }
             }
-        }
+
+        } // End of TC execution for loop
 
         /*notify end of testing */
         for (TestExecutorMonitor monitor : progressMonitors) {
             monitor.testingFinished();
         }
+
+        return success;
     }
 
+    /**
+     * Add test executor monitor / subscriber.
+     *
+     * @param monitor the monitor
+     */
     public void addTestExecutorMonitor(TestExecutorMonitor monitor) {
         progressMonitors.add(monitor);
     }
 
+    /**
+     * Remove a test executor monitor  / subscriber.
+     *
+     * @param monitor the monitor
+     */
     public void removeTestExecutorMonitor(TestExecutorMonitor monitor) {
         progressMonitors.remove(monitor);
     }

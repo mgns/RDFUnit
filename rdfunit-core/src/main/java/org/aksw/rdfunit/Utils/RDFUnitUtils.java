@@ -3,61 +3,61 @@ package org.aksw.rdfunit.Utils;
 import com.hp.hpl.jena.query.QueryExecution;
 import com.hp.hpl.jena.query.QuerySolution;
 import com.hp.hpl.jena.query.ResultSet;
-import com.hp.hpl.jena.rdf.model.Model;
-import com.hp.hpl.jena.rdf.model.ModelFactory;
-import org.aksw.rdfunit.io.DataReader;
-import org.aksw.rdfunit.io.RDFFileReader;
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.io.RDFReader;
+import org.aksw.rdfunit.io.RDFStreamReader;
 import org.aksw.rdfunit.services.SchemaService;
-import org.aksw.rdfunit.sources.DatasetSource;
+import org.aksw.rdfunit.sources.EndpointTestSource;
 import org.aksw.rdfunit.sources.Source;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.Collection;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 9/24/13 11:25 AM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 9/24/13 11:25 AM
  */
-public class RDFUnitUtils {
+public final class RDFUnitUtils {
     private static final Logger log = LoggerFactory.getLogger(RDFUnitUtils.class);
 
-    public static String getAllPrefixes() {
-        return " PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
-                " PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
-                " PREFIX owl: <http://www.w3.org/2002/07/owl#>\n" +
-                " PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>" +
-                " PREFIX dcterms: <http://purl.org/dc/terms/> \n" +
-                " PREFIX dc: <http://purl.org/dc/elements/1.1/> \n" +
-                " PREFIX rlog: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/rlog#> \n" +
-                " PREFIX prov: <http://www.w3.org/ns/prov#> \n" +
-                " PREFIX rut: <http://rdfunit.aksw.org/ns/core#> \n" +
-                " PREFIX rutp: <http://rdfunit.aksw.org/data/patterns#> \n" +
-                " PREFIX rutt: <http://rdfunit.aksw.org/data/tests#> \n" +
-                " PREFIX rutg: <http://rdfunit.aksw.org/data/generators#> \n"
-                ;
+    private RDFUnitUtils() {
     }
 
     public static void fillSchemaServiceFromFile(String additionalCSV) {
 
+        try {
+            InputStream inputStream = new FileInputStream(additionalCSV);
+            fillSchemaServiceFromFile(inputStream);
+        } catch (FileNotFoundException e) {
+            log.error("File " + additionalCSV + " not fount!", e);
+        }
+    }
+
+    public static void fillSchemaServiceFromFile(InputStream additionalCSV) {
+
         int count = 0;
 
-        if (additionalCSV != null && !additionalCSV.isEmpty()) {
+        if (additionalCSV != null) {
             BufferedReader in = null;
+
             try {
-                in = new BufferedReader(new InputStreamReader(new FileInputStream(additionalCSV), "UTF-8"));
+                in = new BufferedReader(new InputStreamReader(additionalCSV, "UTF-8"));
+            } catch (UnsupportedEncodingException e) {
+                log.debug("UnsupportedEncodingException: ", e);
+                return;
+            }
 
-                String line = null;
+            String line = null;
 
-
+            try {
                 while ((line = in.readLine()) != null) {
                     // skip comments & empty lines
-                    if (line.startsWith("#") || line.trim().isEmpty())
+                    if (line.startsWith("#") || line.trim().isEmpty()) {
                         continue;
+                    }
 
                     count++;
 
@@ -74,10 +74,7 @@ public class RDFUnitUtils {
                             count--;
                     }
                 }
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+
             } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
@@ -87,8 +84,8 @@ public class RDFUnitUtils {
     }
 
     public static void fillSchemaServiceFromLOV() {
-        java.util.Collection<Source> sources = new ArrayList<Source>();
-        Source lov = new DatasetSource("lov", "http://lov.okfn.org", "http://lov.okfn.org/endpoint/lov", new ArrayList<String>(), null);
+
+        Source lov = new EndpointTestSource("lov", "http://lov.okfn.org", "http://lov.okfn.org/endpoint/lov", new ArrayList<String>(), null);
 
         QueryExecution qe = null;
         int count = 0;
@@ -131,8 +128,9 @@ public class RDFUnitUtils {
         } catch (Exception e) {
             //TODO log error about lov
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
 
         log.info("Loaded " + count + " schema declarations from LOV SPARQL Endpoint");
@@ -143,18 +141,19 @@ public class RDFUnitUtils {
         return f.exists();
     }
 
-    public static DataReader getPatternsFromResource() {
-        return new RDFFileReader(RDFUnitUtils.class.getResourceAsStream("/org/aksw/rdfunit/patterns.ttl"));
+    public static RDFReader getPatternsFromResource() {
+        return new RDFStreamReader(RDFUnitUtils.class.getResourceAsStream("/org/aksw/rdfunit/patterns.ttl"));
     }
 
-    public static DataReader getAutoGeneratorsFromResource() {
-        return new RDFFileReader(RDFUnitUtils.class.getResourceAsStream("/org/aksw/rdfunit/testAutoGenerators.ttl"));
+    public static RDFReader getAutoGeneratorsFromResource() {
+        return new RDFStreamReader(RDFUnitUtils.class.getResourceAsStream("/org/aksw/rdfunit/testAutoGenerators.ttl"));
     }
 
-    public static <T> T getFirstItemInCollection(java.util.Collection<T> collection) {
+    public static <T> T getFirstItemInCollection(Collection<T> collection) {
         //noinspection LoopStatementThatDoesntLoop
-        for (T item : collection)
+        for (T item : collection) {
             return item;
+        }
         return null;
     }
 }

@@ -1,11 +1,11 @@
 package org.aksw.rdfunit.enums;
 
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
 
 /**
- * User: Dimitris Kontokostas
- * Describes a test case status result
- * Created: 9/25/13 9:05 AM
+ * @author Dimitris Kontokostas
+ *         Describes a test case status result
+ * @since 9/25/13 9:05 AM
  */
 public enum TestCaseResultStatus {
 
@@ -15,9 +15,16 @@ public enum TestCaseResultStatus {
     Error,
     Running;
 
+    /**
+     * Holds the prefix to resolve this enum
+     */
+    private static final String schemaPrefix = "rut";
+
+    /**
+     * @return a full URI/IRI as a String
+     */
     public String getUri() {
-        // TODO make prefix configurable
-        return PrefixService.getPrefix("rut") + "ResultStatus" + name();
+        return PrefixNSService.getNSFromPrefix(schemaPrefix) + "ResultStatus" + name();
     }
 
     @Override
@@ -25,31 +32,36 @@ public enum TestCaseResultStatus {
         return getUri();
     }
 
+    /**
+     * Resolves a full URI/IRI to an enum
+     *
+     * @param value the URI/IRI we want to resolve
+     * @return the equivalent enum type or null if it cannot resolve
+     */
     public static TestCaseResultStatus resolve(String value) {
 
-        String s = value.replace(PrefixService.getPrefix("rut") + "ResultStatus", "");
-        if (s.equals("Success")) {
-            return Success;
-        } else if (s.equals("Fail")) {
-            return Fail;
-        } else if (s.equals("Timeout")) {
-            return Timeout;
-        } else if (s.equals("Error")) {
-            return Error;
+        String qName = PrefixNSService.getLocalName(value, schemaPrefix).replace("ResultStatus", "");
+        for (TestCaseResultStatus status : values()) {
+            if (qName.equals(status.name())) {
+                return status;
+            }
         }
-
         return null;
     }
 
     public static TestCaseResultStatus resolve(long value) {
-        if (value == -2)
+        if (value == -2) {
             return Error;
-        if (value == -1)
+        }
+        if (value == -1) {
             return Timeout;
-        if (value == 0)
+        }
+        if (value == 0) {
             return Success;
-        if (value > 0)
+        }
+        if (value > 0) {
             return Fail;
+        }
         return null;
     }
 }

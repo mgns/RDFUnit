@@ -6,11 +6,14 @@ import org.aksw.rdfunit.sources.Source;
 import java.net.URI;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 11/14/13 9:17 AM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 11/14/13 9:17 AM
  */
-public class CacheUtils {
+public final class CacheUtils {
+
+    private CacheUtils() {
+    }
 
     public static String getSchemaSourceCacheFilename(String testFolder, TestAppliesTo schemaType, String prefix, String uri) {
         return testFolder + schemaType.name() + "/" + getCacheFolderForURI(uri) + prefix + ".cache." + schemaType.name() + ".ttl";

@@ -3,42 +3,42 @@ package org.aksw.rdfunit.tests;
 import com.hp.hpl.jena.query.*;
 import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.sparql.core.Var;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.Utils.TestUtils;
 import org.aksw.rdfunit.enums.TestGenerationType;
 import org.aksw.rdfunit.exceptions.BindingException;
 import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
 import org.aksw.rdfunit.patterns.Pattern;
 import org.aksw.rdfunit.patterns.PatternParameter;
+import org.aksw.rdfunit.services.PrefixNSService;
 import org.aksw.rdfunit.sources.Source;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 /**
- * User: Dimitris Kontokostas
- * Takes a sparqlPattern and a SPARQL query and based on the data
- * returned from that query we generate test cases
- * Created: 9/20/13 2:48 PM
+ * @author Dimitris Kontokostas
+ *         Takes a sparqlPattern and a SPARQL query and based on the data
+ *         returned from that query we generate test cases
+ * @since 9/20/13 2:48 PM
  */
 public class TestAutoGenerator {
     private static final Logger log = LoggerFactory.getLogger(TestAutoGenerator.class);
 
-    private final String URI;
+    private final String uri;
     private final String description;
     private final String query;
     private final Pattern pattern;
-    private final java.util.Collection<ResultAnnotation> annotations;
+    private final Collection<ResultAnnotation> generatorAnnotations;
 
-    public TestAutoGenerator(String uri, String description, String query, Pattern pattern, java.util.Collection<ResultAnnotation> annotations) {
-        this.URI = uri;
+    public TestAutoGenerator(String uri, String description, String query, Pattern pattern, Collection<ResultAnnotation> generatorAnnotations) {
+        this.uri = uri;
         this.description = description;
         this.query = query;
         this.pattern = pattern;
-        this.annotations = annotations;
-        this.annotations.addAll(pattern.getAnnotations()); // get Pattern annotations and add them
+        this.generatorAnnotations = generatorAnnotations;
     }
 
     /**
@@ -47,20 +47,19 @@ public class TestAutoGenerator {
     public boolean isValid() {
         Query q;
         if (pattern == null) {
-            log.error(getURI() + " : Pattern " + getPattern() + " does not exist");
+            log.error(getUri() + " : Pattern " + getPattern() + " does not exist");
             return false;
         }
         try {
-            q = QueryFactory.create(RDFUnitUtils.getAllPrefixes() + getQuery());
+            q = QueryFactory.create(PrefixNSService.getSparqlPrefixDecl() + getQuery());
         } catch (Exception e) {
-            log.error(getURI() + " Cannot parse query:\n" + RDFUnitUtils.getAllPrefixes() + getQuery());
-            e.printStackTrace();
+            log.error(getUri() + " Cannot parse query:\n" + PrefixNSService.getSparqlPrefixDecl() + getQuery(), e);
             return false;
         }
 
-        java.util.Collection<Var> sv = q.getProjectVars();
+        Collection<Var> sv = q.getProjectVars();
         if (sv.size() != pattern.getParameters().size() + 1) {
-            log.error(getURI() + " Select variables are different than Pattern parameters");
+            log.error(getUri() + " Select variables are different than Pattern parameters");
             return false;
         }
 
@@ -68,18 +67,18 @@ public class TestAutoGenerator {
         return true;
     }
 
-    public java.util.Collection<TestCase> generate(Source source) {
-        java.util.Collection<TestCase> tests = new ArrayList<TestCase>();
+    public Collection<TestCase> generate(Source source) {
+        Collection<TestCase> tests = new ArrayList<>();
 
-        Query q = QueryFactory.create(RDFUnitUtils.getAllPrefixes() + getQuery());
+        Query q = QueryFactory.create(PrefixNSService.getSparqlPrefixDecl() + getQuery());
         QueryExecution qe = source.getExecutionFactory().createQueryExecution(q);
         ResultSet rs = qe.execSelect();
 
         while (rs.hasNext()) {
             QuerySolution row = rs.next();
 
-            java.util.Collection<Binding> bindings = new ArrayList<Binding>();
-            java.util.Collection<String> references = new ArrayList<String>();
+            Collection<Binding> bindings = new ArrayList<>();
+            Collection<String> references = new ArrayList<>();
             String description = "";
 
             for (PatternParameter p : pattern.getParameters()) {
@@ -89,58 +88,59 @@ public class TestAutoGenerator {
                     try {
                         b = new Binding(p, n);
                     } catch (BindingException e) {
-                        log.error("Non valid binding for parameter " + p.getId() + " in AutoGenerator: " + this.getURI());
+                        log.error("Non valid binding for parameter " + p.getId() + " in AutoGenerator: " + this.getUri());
                         continue;
                     }
                     bindings.add(b);
-                    if (n.isResource() && !p.getId().toLowerCase().equals("loglevel")) {
+                    if (n.isResource() && !p.getId().equalsIgnoreCase("loglevel")) {
                         references.add(n.toString().trim().replace(" ", ""));
                     }
                 } else {
-                    log.error("Not bindings for parameter " + p.getId() + "  in AutoGenerator: " + this.getURI());
+                    log.error("Not bindings for parameter " + p.getId() + "  in AutoGenerator: " + this.getUri());
                     break;
                 }
             }
             if (bindings.size() != getPattern().getParameters().size()) {
-                log.error("Bindings for pattern " + pattern.getId() + "  do not match in AutoGenerator: " + this.getURI());
+                log.error("Bindings for pattern " + pattern.getId() + "  do not match in AutoGenerator: " + this.getUri());
                 continue;
             }
 
-            if (row.get("DESCRIPTION") != null)
+            if (row.get("DESCRIPTION") != null) {
                 description = row.get("DESCRIPTION").toString();
-            else {
-                log.error("No ?DESCRIPTION variable found in AutoGenerator: " + this.getURI());
+            } else {
+                log.error("No ?DESCRIPTION variable found in AutoGenerator: " + this.getUri());
                 continue;
             }
 
 
             try {
+                Collection<ResultAnnotation> patternBindedAnnotations = pattern.getBindedAnnotations(bindings);
+                patternBindedAnnotations.addAll(generatorAnnotations);
                 PatternBasedTestCase tc = new PatternBasedTestCase(
-                        TestUtils.generateTestURI(source.getPrefix(), getPattern(), bindings, URI),
+                        TestUtils.generateTestURI(source.getPrefix(), getPattern(), bindings, uri),
                         new TestCaseAnnotation(
                                 TestGenerationType.AutoGenerated,
-                                this.getURI(),
+                                this.getUri(),
                                 source.getSourceType(),
                                 source.getUri(),
                                 references,
                                 description,
-                                "",
-                                annotations),
+                                null,
+                                patternBindedAnnotations),
                         pattern,
                         bindings
                 );
                 tests.add(tc);
             } catch (TestCaseInstantiationException e) {
-                log.error(e.getMessage());
-                e.printStackTrace();
+                log.error(e.getMessage(), e);
             }
 
         }
         return tests;
     }
 
-    public String getURI() {
-        return URI;
+    public String getUri() {
+        return uri;
     }
 
     public String getDescription() {

@@ -8,20 +8,26 @@ import com.vaadin.data.util.PropertysetItem;
 import com.vaadin.shared.ui.combobox.FilteringMode;
 import com.vaadin.ui.*;
 import com.vaadin.ui.Button.ClickEvent;
-import org.aksw.rdfunit.io.RDFDereferenceReader;
+import org.aksw.rdfunit.exceptions.UndefinedSchemaException;
+import org.aksw.rdfunit.io.RDFReaderFactory;
 import org.aksw.rdfunit.services.SchemaService;
 import org.aksw.rdfunit.sources.SchemaSource;
 import org.aksw.rdfunit.sources.Source;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vaadin.tokenfield.TokenField;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
- * User: Dimitris Kontokostas
- * provides a schema
- * Created: 11/18/13 11:26 AM
+ * @author Dimitris Kontokostas
+ *         provides a schema
+ * @since 11/18/13 11:26 AM
  */
 public class SchemaSelectorComponent extends VerticalLayout {
+    private static Logger log = LoggerFactory.getLogger(SchemaSelectorComponent.class);
 
     final TokenField tokenField;
 
@@ -181,7 +187,7 @@ public class SchemaSelectorComponent extends VerticalLayout {
                             prefix = prefixField.getValue();
                             uri = uriField.getValue();
                             if (!(prefix == null || uri == null || prefix.isEmpty() || uri.isEmpty())) {
-                                SchemaSource source = new SchemaSource(prefix, uri, new RDFDereferenceReader(uri));
+                                SchemaSource source = new SchemaSource(prefix, uri, RDFReaderFactory.createDereferenceReader(uri));
                                 ((BeanItemContainer) f.getContainerDataSource())
                                         .addBean(source);
                                 f.addToken(source);
@@ -203,7 +209,13 @@ public class SchemaSelectorComponent extends VerticalLayout {
         BeanItemContainer<SchemaSource> container = new BeanItemContainer<SchemaSource>(
                 SchemaSource.class);
 
-        java.util.Collection <SchemaSource> sources = SchemaService.getSourceListAll(false, null);
+        java.util.Collection<SchemaSource> sources = null;
+        try {
+            sources = SchemaService.getSourceListAll(false, null);
+        } catch (UndefinedSchemaException e) {
+            log.error("Undefined schema");
+            sources = new ArrayList<>();
+        }
         //Collections.sort(sources);
 
         for (SchemaSource s : sources)
@@ -264,8 +276,8 @@ public class SchemaSelectorComponent extends VerticalLayout {
         }
     }
 
-    public java.util.Collection <SchemaSource> getSelections() {
-        java.util.Collection <SchemaSource> sources = new ArrayList<SchemaSource>();
+    public java.util.Collection<SchemaSource> getSelections() {
+        java.util.Collection<SchemaSource> sources = new ArrayList<>();
 
         Object selectedSources = tokenField.getValue();
 
@@ -278,7 +290,7 @@ public class SchemaSelectorComponent extends VerticalLayout {
         return sources;
     }
 
-    public void setSelections(java.util.Collection <SchemaSource> sources) {
+    public void setSelections(java.util.Collection<SchemaSource> sources) {
         clearSelections();
         for (SchemaSource s : sources)
             tokenField.addToken(s);

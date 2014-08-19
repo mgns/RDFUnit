@@ -5,25 +5,27 @@ import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.ResourceFactory;
 import com.hp.hpl.jena.shared.uuid.JenaUUID;
 import com.hp.hpl.jena.vocabulary.RDF;
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
+
+import java.util.Collection;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 1/6/14 8:33 AM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 1/6/14 8:33 AM
  */
 public class TestSuite {
-    private final java.util.Collection<TestCase> testCases;
+    private final Collection<TestCase> testCases;
 
-    public TestSuite(java.util.Collection<TestCase> testCases) {
+    public TestSuite(Collection<TestCase> testCases) {
         this.testCases = testCases;
     }
 
-    public java.util.Collection<TestCase> getTestCases() {
+    public Collection<TestCase> getTestCases() {
         return testCases;
     }
 
-    public void setTestCases(java.util.Collection<TestCase> testCases) {
+    public void setTestCases(Collection<TestCase> testCases) {
         this.testCases.clear();
         this.testCases.addAll(testCases);
     }
@@ -34,11 +36,11 @@ public class TestSuite {
 
     public Resource serialize(Model model) {
         Resource resource = model.createResource(JenaUUID.generate().asString())
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("rut") + "TestSuite"))
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("prov") + "Collection"));
+                .addProperty(RDF.type, model.createResource(PrefixNSService.getURIFromAbbrev("rut:TestSuite")))
+                .addProperty(RDF.type, model.createResource(PrefixNSService.getURIFromAbbrev("prov:Collection")));
 
         for (TestCase tc : testCases) {
-            resource.addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("prov"), "hadMember"), model.createResource(tc.getTestURI()));
+            resource.addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("prov:hadMember")), model.createResource(tc.getTestURI()));
         }
         // TODO check whether to dump the complete test
 

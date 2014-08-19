@@ -5,12 +5,12 @@ import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.ResourceFactory;
 import com.hp.hpl.jena.vocabulary.RDF;
 import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 1/3/14 3:57 PM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 1/3/14 3:57 PM
  */
 public class ManualTestCase extends TestCase {
     private final String sparqlWhere;
@@ -18,8 +18,8 @@ public class ManualTestCase extends TestCase {
 
     public ManualTestCase(String testURI, TestCaseAnnotation annotation, String sparqlWhere, String sparqlPrevalence) throws TestCaseInstantiationException {
         super(testURI, annotation);
-        this.sparqlWhere = sparqlWhere;
-        this.sparqlPrevalence = sparqlPrevalence;
+        this.sparqlWhere = sparqlWhere.trim();
+        this.sparqlPrevalence = sparqlPrevalence.trim();
         validateQueries();
     }
 
@@ -29,9 +29,9 @@ public class ManualTestCase extends TestCase {
         Resource resource = super.serialize(model);
 
         resource
-                .addProperty(RDF.type, model.createResource(PrefixService.getPrefix("rut") + "ManualTestCase"))
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "sparqlWhere"), getSparqlWhere())
-                .addProperty(ResourceFactory.createProperty(PrefixService.getPrefix("rut"), "sparqlPrevalence"), getSparqlPrevalence());
+                .addProperty(RDF.type, model.createResource(PrefixNSService.getURIFromAbbrev("rut:ManualTestCase")))
+                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:sparqlWhere")), getSparqlWhere())
+                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:sparqlPrevalence")), getSparqlPrevalence());
 
         return resource;
     }

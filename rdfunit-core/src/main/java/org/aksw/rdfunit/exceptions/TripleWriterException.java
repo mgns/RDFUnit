@@ -1,14 +1,15 @@
 package org.aksw.rdfunit.exceptions;
 
 /**
- * User: Dimitris Kontokostas
- * Exceptions for writer that cannot write()
- * Created: 11/14/13 8:35 AM
+ * @author Dimitris Kontokostas
+ *         Exceptions for writer that cannot write()
+ * @since 11/14/13 8:35 AM
  */
 public class TripleWriterException extends Exception {
 
 
     public TripleWriterException() {
+        super();
     }
 
     public TripleWriterException(String message, Throwable e) {

@@ -1,20 +1,22 @@
 package org.aksw.rdfunit.services;
 
 import org.aksw.rdfunit.Utils.CacheUtils;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
+import org.aksw.rdfunit.exceptions.UndefinedSchemaException;
 import org.aksw.rdfunit.sources.SchemaSource;
 import org.aksw.rdfunit.sources.SourceFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 10/2/13 12:24 PM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 10/2/13 12:24 PM
  */
-public class SchemaService {
-    final private static HashMap<String, String> schemata = new HashMap<String, String>();
+public final class SchemaService {
+    final private static Map<String, String> schemata = new ConcurrentHashMap<>();
 
     private SchemaService() {
     }
@@ -35,41 +37,51 @@ public class SchemaService {
         String sourceUriURL = schemata.get(id);
         if (sourceUriURL == null) {
             // If not a prefix try to dereference it
-            return SourceFactory.createSchemaSourceDereference(CacheUtils.getAutoPrefixForURI(id), id);
+            if (id.contains("/") || id.contains("\\")) {
+                return SourceFactory.createSchemaSourceDereference(CacheUtils.getAutoPrefixForURI(id), id);
+            } else {
+                return null;
+            }
         }
 
         String[] split = sourceUriURL.split("\t");
         if (split.length == 2) {
-            if (baseFolder != null)
+            if (baseFolder != null) {
                 return SourceFactory.createSchemaSourceFromCache(baseFolder, id, split[0], split[1]);
-            else
+            } else {
                 return SourceFactory.createSchemaSourceDereference(id, split[0], split[1]);
+            }
         } else {
-            if (baseFolder != null)
+            if (baseFolder != null) {
                 return SourceFactory.createSchemaSourceFromCache(baseFolder, id, split[0]);
-            else
+            } else {
                 return SourceFactory.createSchemaSourceDereference(id, split[0]);
+            }
         }
     }
 
-    public static java.util.Collection<SchemaSource> getSourceList(String baseFolder, java.util.Collection<String> ids) {
-        java.util.Collection<SchemaSource> sources = new ArrayList<SchemaSource>();
+    public static Collection<SchemaSource> getSourceList(String baseFolder, Collection<String> ids) throws UndefinedSchemaException {
+        Collection<SchemaSource> sources = new ArrayList<>();
         for (String id : ids) {
             SchemaSource src = getSource(baseFolder, id.trim());
-            if (src != null)
+            if (src != null) {
                 sources.add(src);
+            } else {
+                throw new UndefinedSchemaException(id);
+            }
         }
         return sources;
     }
 
-    public static java.util.Collection<SchemaSource> getSourceListAll(boolean fileCache, String baseFolder) {
-        java.util.Collection<String> prefixes = new ArrayList<String>();
+    public static Collection<SchemaSource> getSourceListAll(boolean fileCache, String baseFolder) throws UndefinedSchemaException {
+        Collection<String> prefixes = new ArrayList<>();
         prefixes.addAll(schemata.keySet());
 
-        if (fileCache)
+        if (fileCache) {
             return getSourceList(baseFolder, prefixes);
-        else
+        } else {
             return getSourceList(null, prefixes);
+        }
     }
 }
 

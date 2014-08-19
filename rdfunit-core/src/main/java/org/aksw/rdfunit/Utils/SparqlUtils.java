@@ -8,20 +8,26 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.sparql.engine.http.QueryExceptionHTTP;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
+import org.aksw.rdfunit.services.PrefixNSService;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 1/24/14 6:08 PM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 1/24/14 6:08 PM
  */
-public class SparqlUtils {
-    static public java.util.Collection<ResultAnnotation> getResultAnnotations(QueryExecutionFactory queryFactory, String uri) {
-        java.util.Collection<ResultAnnotation> annotations = new ArrayList<ResultAnnotation>();
-        String sparql = RDFUnitUtils.getAllPrefixes() +
+public final class SparqlUtils {
+
+    private SparqlUtils() {
+    }
+
+    static public Collection<ResultAnnotation> getResultAnnotations(QueryExecutionFactory queryFactory, String uri) {
+        Collection<ResultAnnotation> annotations = new ArrayList<>();
+        String sparql = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT ?annotationProperty ?annotationValue WHERE {" +
                 " <" + uri + "> rut:resultAnnotation ?annotation . " +
                 " ?annotation a rut:ResultAnnotation ; " +
@@ -44,8 +50,9 @@ public class SparqlUtils {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
 
         return annotations;
@@ -60,8 +67,9 @@ public class SparqlUtils {
         } catch (Exception e) {
 
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
         return false;
     }
@@ -74,9 +82,9 @@ public class SparqlUtils {
     }
 
     public static Model getModelFromQueryFactory(QueryExecutionFactory qef) throws Exception {
-        if (qef instanceof QueryExecutionFactoryModel)
+        if (qef instanceof QueryExecutionFactoryModel) {
             return ((QueryExecutionFactoryModel) qef).getModel();
-        else {
+        } else {
             QueryExecution qe = null;
             try {
                 qe = qef.createQueryExecution(" CONSTRUCT ?s ?p ?o WHERE { ?s ?p ?o } ");
@@ -84,8 +92,9 @@ public class SparqlUtils {
             } catch (Exception e) {
                 throw e;
             } finally {
-                if (qe != null)
+                if (qe != null) {
                     qe.close();
+                }
             }
         }
     }

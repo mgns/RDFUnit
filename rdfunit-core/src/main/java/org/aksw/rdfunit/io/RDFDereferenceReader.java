@@ -5,15 +5,16 @@ import com.hp.hpl.jena.shared.NotFoundException;
 import org.aksw.rdfunit.exceptions.TripleReaderException;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 11/14/13 8:48 AM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 11/14/13 8:48 AM
  */
-public class RDFDereferenceReader extends DataReader {
+public class RDFDereferenceReader extends RDFReader {
 
     private final String uri;
 
     public RDFDereferenceReader(String uri) {
+        super();
         this.uri = uri;
     }
 
@@ -23,13 +24,13 @@ public class RDFDereferenceReader extends DataReader {
             //TODO check for relative file names and convert to absolute paths
             model.read(uri);
 
-        // Not found
-        } catch(NotFoundException e) {
+            // Not found
+        } catch (NotFoundException e) {
             throw new TripleReaderException("'" + uri + "' not found", e);
         }
-		
-		//org.apache.jena.riot.RiotException -> if wrong format, i.e. turtle instead of RDF/XML
-        
+
+        //org.apache.jena.riot.RiotException -> if wrong format, i.e. turtle instead of RDF/XML
+
         catch (Exception e) {
             throw new TripleReaderException(e);
         }

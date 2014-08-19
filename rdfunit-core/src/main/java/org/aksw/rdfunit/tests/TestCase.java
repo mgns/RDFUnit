@@ -8,19 +8,19 @@ import com.hp.hpl.jena.query.QueryParseException;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.hp.hpl.jena.rdf.model.Resource;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
+import org.aksw.rdfunit.enums.RLOGLevel;
 import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
+import org.aksw.rdfunit.services.PrefixNSService;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.Collection;
 
 /**
- * User: Dimitris Kontokostas
- * Description
- * Created: 9/23/13 6:31 AM
+ * @author Dimitris Kontokostas
+ *         Description
+ * @since 9/23/13 6:31 AM
  */
 public abstract class TestCase implements Comparable<TestCase> {
-    protected Logger log = LoggerFactory.getLogger(TestCase.class);
 
     private final String testURI;
     private final TestCaseAnnotation annotation;
@@ -49,97 +49,71 @@ public abstract class TestCase implements Comparable<TestCase> {
 
     }
 
-    public String getSparql() {
-        return " SELECT DISTINCT ?resource WHERE " + getSparqlWhere();
-    }
-
-    public Query getSparqlQuery() {
-        return QueryFactory.create(RDFUnitUtils.getAllPrefixes() + getSparql());
-    }
-
-    public String getSparqlAsCount() {
-        return " SELECT (count(DISTINCT ?resource ) AS ?total ) WHERE " + getSparqlWhere();
-    }
-
-    public Query getSparqlAsCountQuery() {
-        return QueryFactory.create(RDFUnitUtils.getAllPrefixes() + getSparqlAsCount());
-    }
-
-    public String getSparqlAsAsk() {
-        return getSparqlAsAskQuery().toString();
-    }
-
-    public Query getSparqlAsAskQuery() {
-        Query q = getSparqlQuery();
-        q.setQueryAskType();
-        return q;
-    }
-
-    public Query getSparqlAnnotatedQuery() {
-
-        // TODO set construct annotations
-        return getSparqlQuery();
-    }
-
-    public String getSparqlAnnotated() {
-
-        // TODO set construct annotations
-        return getSparql();
-    }
-
     public String getResultMessage() {
         return annotation.getDescription();
     }
 
-    public String getLogLevel() {
+    public RLOGLevel getLogLevel() {
         return annotation.getTestCaseLogLevel();
     }
 
-    public java.util.Collection<ResultAnnotation> getResultAnnotations() {
+    public Collection<ResultAnnotation> getResultAnnotations() {
         return annotation.getResultAnnotations();
     }
 
     public Query getSparqlPrevalenceQuery() {
-        return QueryFactory.create(RDFUnitUtils.getAllPrefixes() + getSparqlPrevalence());
+        if (getSparqlPrevalence().trim().isEmpty())
+            return null;
+        return QueryFactory.create(PrefixNSService.getSparqlPrefixDecl() + getSparqlPrevalence());
     }
 
     public String getTestURI() {
         return testURI;
     }
 
-    public void validateQueries() throws TestCaseInstantiationException {
-        validateSPARQL(getSparql(), "SPARQL");
-        validateSPARQL(getSparqlAsCount(), "SPARQL Count");
-        validateSPARQL(getSparqlAsAsk(), "ASK");
-        validateSPARQL(getSparqlAnnotated(), "construct");
-        if (!getSparqlPrevalence().trim().equals("")) // Prevalence in not always defined
-            validateSPARQL(getSparqlPrevalence(), "prevalence");
+    public String getAbrTestURI() {
+        return testURI.replace(PrefixNSService.getNSFromPrefix("rutt"), "rutt:");
+    }
 
-        java.util.Collection<String> vars = getSparqlQuery().getResultVars();
+    public void validateQueries() throws TestCaseInstantiationException {
+        // TODO move this in a separate class
+
+        validateSPARQL(new QueryGenerationSelectFactory().getSparqlQueryAsString(this), "SPARQL");
+        validateSPARQL(new QueryGenerationCountFactory().getSparqlQueryAsString(this), "SPARQL Count");
+        validateSPARQL(new QueryGenerationAskFactory().getSparqlQueryAsString(this), "ASK");
+        if (!getSparqlPrevalence().trim().equals("")) { // Prevalence in not always defined
+            validateSPARQL(getSparqlPrevalence(), "prevalence");
+        }
+
+        Collection<String> vars = new QueryGenerationSelectFactory().getSparqlQuery(this).getResultVars();
         // check for Resource & message
         boolean hasResource = false;
         for (String v : vars) {
-            if (v.equals("resource"))
+            if (v.equals("resource")) {
                 hasResource = true;
+            }
 
         }
-        if (!hasResource)
+        if (!hasResource) {
             throw new TestCaseInstantiationException("?resource is not included in SELECT for Test: " + testURI);
+        }
 
         // Message is allowed to exist either in SELECT or as a result annotation
-        if (annotation.getDescription().equals(""))
+        if (annotation.getDescription().equals("")) {
             throw new TestCaseInstantiationException("No test case dcterms:description message included in TestCase: " + testURI);
+        }
 
-        if (getLogLevel() == null || getLogLevel().equals("")) {
-            throw new TestCaseInstantiationException("No log level included for Test: " + testURI);
+        if (getLogLevel() == null) {
+            throw new TestCaseInstantiationException("No (or malformed) log level included for Test: " + testURI);
         }
     }
 
     private void validateSPARQL(String sparql, String type) throws TestCaseInstantiationException {
         try {
-            Query q = QueryFactory.create(RDFUnitUtils.getAllPrefixes() + sparql);
+            QueryFactory.create(PrefixNSService.getSparqlPrefixDecl() + sparql);
         } catch (QueryParseException e) {
-            throw new TestCaseInstantiationException("QueryParseException in " + type + " query (line " + e.getLine() + ", column " + e.getColumn() + " for Test: " + testURI + "\n" + RDFUnitUtils.getAllPrefixes() + sparql);
+            String message = "QueryParseException in " + type + " query (line " + e.getLine() + ", column " + e.getColumn() + " for Test: " + testURI + "\n" + PrefixNSService.getSparqlPrefixDecl() + sparql;
+            throw new TestCaseInstantiationException(message, e);
         }
     }
 
@@ -165,4 +139,5 @@ public abstract class TestCase implements Comparable<TestCase> {
     public String toString() {
         return this.getTestURI();
     }
+
 }

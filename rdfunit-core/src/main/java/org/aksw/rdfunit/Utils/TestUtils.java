@@ -9,37 +9,43 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.shared.uuid.JenaUUID;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
+import org.aksw.rdfunit.enums.RLOGLevel;
 import org.aksw.rdfunit.enums.TestAppliesTo;
 import org.aksw.rdfunit.enums.TestGenerationType;
 import org.aksw.rdfunit.exceptions.BindingException;
 import org.aksw.rdfunit.exceptions.TestCaseInstantiationException;
 import org.aksw.rdfunit.exceptions.TripleWriterException;
-import org.aksw.rdfunit.io.DataWriter;
+import org.aksw.rdfunit.io.RDFWriter;
 import org.aksw.rdfunit.patterns.Pattern;
 import org.aksw.rdfunit.patterns.PatternParameter;
 import org.aksw.rdfunit.services.PatternService;
-import org.aksw.rdfunit.services.PrefixService;
+import org.aksw.rdfunit.services.PrefixNSService;
 import org.aksw.rdfunit.sources.Source;
 import org.aksw.rdfunit.tests.*;
 import org.aksw.rdfunit.tests.results.ResultAnnotation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collection;
 
 
 /**
- * User: Dimitris Kontokostas
- * Various utility test functions for tests
- * Created: 9/24/13 10:59 AM
+ * @author Dimitris Kontokostas
+ *         Various utility test functions for tests
+ * @since 9/24/13 10:59 AM
  */
-public class TestUtils {
+public final class TestUtils {
     private static final Logger log = LoggerFactory.getLogger(TestUtils.class);
 
-    public static java.util.Collection<TestAutoGenerator> instantiateTestGeneratorsFromModel(QueryExecutionFactory queryFactory) {
-        java.util.Collection<TestAutoGenerator> autoGenerators = new ArrayList<TestAutoGenerator>();
+    private TestUtils() {
+    }
 
-        String sparqlSelect = RDFUnitUtils.getAllPrefixes() +
+    public static Collection<TestAutoGenerator> instantiateTestGeneratorsFromModel(QueryExecutionFactory queryFactory) {
+        Collection<TestAutoGenerator> autoGenerators = new ArrayList<>();
+
+        String sparqlSelect = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT ?generator ?desc ?query ?patternID WHERE { " +
                 " ?generator " +
                 "    a rut:TestGenerator ; " +
@@ -61,13 +67,13 @@ public class TestUtils {
             String patternID = qs.get("patternID").toString();
 
             // Get annotations from TAG URI
-            java.util.Collection<ResultAnnotation> annotations = SparqlUtils.getResultAnnotations(queryFactory, generator);
+            Collection<ResultAnnotation> annotations = SparqlUtils.getResultAnnotations(queryFactory, generator);
 
             TestAutoGenerator tag = new TestAutoGenerator(generator, description, query, PatternService.getPattern(patternID), annotations);
-            if (tag.isValid())
+            if (tag.isValid()) {
                 autoGenerators.add(tag);
-            else {
-                log.error("AutoGenerator not valid: " + tag.getURI());
+            } else {
+                log.error("AutoGenerator not valid: " + tag.getUri());
                 System.exit(-1);
             }
         }
@@ -77,8 +83,8 @@ public class TestUtils {
 
     }
 
-    public static java.util.Collection<TestCase> instantiateTestsFromAG(java.util.Collection<TestAutoGenerator> autoGenerators, Source source) {
-        java.util.Collection<TestCase> tests = new ArrayList<TestCase>();
+    public static Collection<TestCase> instantiateTestsFromAG(Collection<TestAutoGenerator> autoGenerators, Source source) {
+        Collection<TestCase> tests = new ArrayList<>();
 
         for (TestAutoGenerator tag : autoGenerators) {
             tests.addAll(tag.generate(source));
@@ -88,13 +94,13 @@ public class TestUtils {
 
     }
 
-    public static java.util.Collection<TestCase> instantiateTestsFromModel(Model model) {
-        java.util.Collection<TestCase> tests = new ArrayList<TestCase>();
+    public static Collection<TestCase> instantiateTestsFromModel(Model model) {
+        Collection<TestCase> tests = new ArrayList<>();
         QueryExecutionFactory qef = new QueryExecutionFactoryModel(model);
 
         // Get all manual tests
 
-        String manualTestsSelectSparql = RDFUnitUtils.getAllPrefixes() +
+        String manualTestsSelectSparql = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT DISTINCT ?testURI WHERE {" +
                 " ?testURI a rut:ManualTestCase }";
 
@@ -105,13 +111,14 @@ public class TestUtils {
             QuerySolution qs = results.next();
             String testURI = qs.get("testURI").toString();
             ManualTestCase tc = instantiateSingleManualTestFromModel(qef, testURI);
-            if (tc != null)
+            if (tc != null) {
                 tests.add(tc);
+            }
         }
 
         // Get all pattern based tests
 
-        String patternTestsSelectSparql = RDFUnitUtils.getAllPrefixes() +
+        String patternTestsSelectSparql = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT DISTINCT ?testURI WHERE {" +
                 " ?testURI a rut:PatternBasedTestCase } ";
 
@@ -122,8 +129,9 @@ public class TestUtils {
             QuerySolution qs = results.next();
             String testURI = qs.get("testURI").toString();
             PatternBasedTestCase tc = instantiateSinglePatternTestFromModel(qef, testURI);
-            if (tc != null)
+            if (tc != null) {
                 tests.add(tc);
+            }
         }
 
         return tests;
@@ -131,7 +139,7 @@ public class TestUtils {
 
     public static ManualTestCase instantiateSingleManualTestFromModel(QueryExecutionFactory qef, String testURI) {
 
-        String sparqlSelect = RDFUnitUtils.getAllPrefixes() +
+        String sparqlSelect = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT DISTINCT ?description ?appliesTo ?generated ?source ?sparqlWhere ?sparqlPrevalence ?testGenerator ?testCaseLogLevel WHERE { " +
                 " <" + testURI + "> " +
                 "    dcterms:description  ?description ;" +
@@ -155,16 +163,17 @@ public class TestUtils {
                 String appliesTo = qs.get("appliesTo").toString();
                 String generated = qs.get("generated").toString();
                 String source = qs.get("source").toString();
-                String testCaseLogLevel = qs.get("testCaseLogLevel").toString();
+                RLOGLevel testCaseLogLevel = RLOGLevel.resolve(qs.get("testCaseLogLevel").toString());
                 String sparqlWhere = qs.get("sparqlWhere").toString();
                 String sparqlPrevalence = qs.get("sparqlPrevalence").toString();
-                java.util.Collection<String> referencesLst = getReferencesFromTestCase(qef, testURI);
+                Collection<String> referencesLst = getReferencesFromTestCase(qef, testURI);
                 String testGenerator = "";
-                if (qs.contains("testGenerator"))
+                if (qs.contains("testGenerator")) {
                     testGenerator = qs.get("testGenerator").toString();
+                }
 
                 // Get annotations from Test URI
-                java.util.Collection<ResultAnnotation> resultAnnotations = SparqlUtils.getResultAnnotations(qef, testURI);
+                Collection<ResultAnnotation> resultAnnotations = SparqlUtils.getResultAnnotations(qef, testURI);
 
                 TestCaseAnnotation annotation =
                         new TestCaseAnnotation(
@@ -177,21 +186,20 @@ public class TestUtils {
                                 testCaseLogLevel,
                                 resultAnnotations);
 
-                if (!results.hasNext())
+                if (!results.hasNext()) {
                     return new ManualTestCase(
                             testURI,
                             annotation,
                             sparqlWhere,
                             sparqlPrevalence);
+                }
             }
         } catch (TestCaseInstantiationException e) {
-            log.error(e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage(), e);
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
 
         log.error("Cannot instantiate test case: " + testURI);
@@ -201,7 +209,7 @@ public class TestUtils {
 
     public static PatternBasedTestCase instantiateSinglePatternTestFromModel(QueryExecutionFactory qef, String testURI) {
 
-        String sparqlSelect = RDFUnitUtils.getAllPrefixes() +
+        String sparqlSelect = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT DISTINCT ?description ?appliesTo ?generated ?source ?basedOnPattern ?testGenerator ?testCaseLogLevel WHERE { " +
                 " <" + testURI + "> " +
                 "    dcterms:description ?description ;" +
@@ -225,22 +233,23 @@ public class TestUtils {
                 String appliesTo = qs.get("appliesTo").toString();
                 String generated = qs.get("generated").toString();
                 String source = qs.get("source").toString();
-                String testCaseLogLevel = qs.get("testCaseLogLevel").toString();
+                RLOGLevel testCaseLogLevel = RLOGLevel.resolve(qs.get("testCaseLogLevel").toString());
                 String patternURI = qs.get("basedOnPattern").toString();
-                Pattern pattern = PatternService.getPattern(patternURI.replace(PrefixService.getPrefix("rutp"), ""));
+                Pattern pattern = PatternService.getPattern( PrefixNSService.getLocalName(patternURI, "rutp"));
                 if (pattern == null) {
                     log.error("Pattern does not exists for test: " + testURI);
                     return null;
                 }
 
-                java.util.Collection<String> referencesLst = getReferencesFromTestCase(qef, testURI);
-                java.util.Collection<Binding> bindings = getBindingsFromTestCase(qef, testURI, pattern);
+                Collection<String> referencesLst = getReferencesFromTestCase(qef, testURI);
+                Collection<Binding> bindings = getBindingsFromTestCase(qef, testURI, pattern);
                 String testGenerator = "";
-                if (qs.contains("testGenerator"))
+                if (qs.contains("testGenerator")) {
                     testGenerator = qs.get("testGenerator").toString();
+                }
 
                 // Get annotations from Test URI
-                java.util.Collection<ResultAnnotation> resultAnnotations = SparqlUtils.getResultAnnotations(qef, testURI);
+                Collection<ResultAnnotation> resultAnnotations = SparqlUtils.getResultAnnotations(qef, testURI);
 
                 TestCaseAnnotation annotation =
                         new TestCaseAnnotation(
@@ -253,44 +262,44 @@ public class TestUtils {
                                 testCaseLogLevel,
                                 resultAnnotations);
 
-                if (!results.hasNext())
+                if (!results.hasNext()) {
                     return new PatternBasedTestCase(
                             testURI,
                             annotation,
                             pattern,
                             bindings);
+                }
             }
         } catch (TestCaseInstantiationException e) {
-            log.error(e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage(), e);
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
 
         log.error("Cannot instantiate test case: " + testURI);
         return null;
     }
 
-    public static void writeTestsToFile(java.util.Collection<TestCase> tests, DataWriter testCache) {
+    public static void writeTestsToFile(Collection<TestCase> tests, RDFWriter testCache) {
         Model model = ModelFactory.createDefaultModel();
-        for (TestCase t : tests)
+        for (TestCase t : tests) {
             t.serialize(model);
+        }
         try {
-            model.setNsPrefixes(PrefixService.getPrefixMap());
+            PrefixNSService.setNSPrefixesInModel(model);
             testCache.write(model);
         } catch (TripleWriterException e) {
             log.error("Cannot cache tests: " + e.getMessage());
         }
     }
 
-    public static java.util.Collection<String> getReferencesFromTestCase(QueryExecutionFactory qef, String testURI) {
+    public static Collection<String> getReferencesFromTestCase(QueryExecutionFactory qef, String testURI) {
 
-        java.util.Collection<String> references = new ArrayList<String>();
+        Collection<String> references = new ArrayList<>();
 
-        String sparqlReferencesSelect = RDFUnitUtils.getAllPrefixes() +
+        String sparqlReferencesSelect = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT DISTINCT ?references WHERE { " +
                 " <" + testURI + "> rut:references ?references . }";
 
@@ -304,17 +313,18 @@ public class TestUtils {
                 references.add(qs.get("references").toString());
             }
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
         return references;
     }
 
-    public static java.util.Collection<Binding> getBindingsFromTestCase(QueryExecutionFactory qef, String testURI, Pattern pattern) {
+    public static Collection<Binding> getBindingsFromTestCase(QueryExecutionFactory qef, String testURI, Pattern pattern) {
 
-        java.util.Collection<Binding> bindings = new ArrayList<Binding>();
+        Collection<Binding> bindings = new ArrayList<>();
 
-        String sparqlReferencesSelect = RDFUnitUtils.getAllPrefixes() +
+        String sparqlReferencesSelect = PrefixNSService.getSparqlPrefixDecl() +
                 " SELECT DISTINCT ?parameter ?value WHERE { " +
                 " <" + testURI + "> rut:binding ?binding ." +
                 " ?binding rut:bindingValue ?value ;" +
@@ -344,38 +354,43 @@ public class TestUtils {
                 }
             }
         } finally {
-            if (qe != null)
+            if (qe != null) {
                 qe.close();
+            }
         }
         return bindings;
     }
 
-    public static String generateTestURI(String sourcePrefix, Pattern pattern, java.util.Collection<Binding> bindings, String generatorURI) {
-        String testURI = PrefixService.getPrefix("rutt") + sourcePrefix + "-" + pattern.getId() + "-";
+    public static String generateTestURI(String sourcePrefix, Pattern pattern, Collection<Binding> bindings, String generatorURI) {
+        String testURI = PrefixNSService.getNSFromPrefix("rutt") + sourcePrefix + "-" + pattern.getId() + "-";
         String string2hash = generatorURI;
-        for (Binding binding : bindings)
-            string2hash += binding.getValue();
-        String md5Hash = TestUtils.MD5(string2hash);
-        if (md5Hash == null)
+        for (Binding binding : bindings) {
+            string2hash += binding.getValueAsString();
+        }
+        String md5Hash = TestUtils.getMD5FromString(string2hash);
+        if (md5Hash == null) {
             testURI += JenaUUID.generate().asString();
-        else
+        } else {
             testURI += md5Hash;
+        }
         return testURI;
     }
 
     // Taken from http://stackoverflow.com/questions/415953/generate-md5-hash-in-java
-    public static String MD5(String md5) {
+    public static String getMD5FromString(String md5) {
         try {
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
-            byte[] array = md.digest(md5.getBytes());
+            byte[] array = md.digest(md5.getBytes("UTF-8"));
             StringBuilder sb = new StringBuilder();
             for (byte anArray : array) {
                 sb.append(Integer.toHexString((anArray & 0xFF) | 0x100).substring(1, 3));
             }
             return sb.toString();
         } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("Cannot calculate MD5 hash for :" + md5, e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException("Cannot calculate MD5 hash for :" + md5, e);
         }
-        return null;
     }
 
 }

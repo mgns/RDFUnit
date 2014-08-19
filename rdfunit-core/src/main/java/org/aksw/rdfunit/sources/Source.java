@@ -7,12 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 
 /**
- * User: Dimitris Kontokostas
- * Abstract class for a data source. A source can be various things like a dataset, a vocabulary or an application
- * Date: 9/16/13 1:15 PM
+ * @author Dimitris Kontokostas
+ *         Abstract class for a data source. A source can be various things like a dataset, a vocabulary or an application
+ *         Date: 9/16/13 1:15 PM
  */
 
 public abstract class Source implements Comparable<Source> {
@@ -20,14 +21,14 @@ public abstract class Source implements Comparable<Source> {
 
     private final String prefix;
     private final String uri;
-    private final java.util.Collection<SchemaSource> referencesSchemata;
+    private final Collection<SchemaSource> referencesSchemata;
 
-    private QueryExecutionFactory queryFactory;
+    private QueryExecutionFactory queryFactory = null;
 
     public Source(String prefix, String uri) {
         this.prefix = prefix;
         this.uri = uri;
-        this.referencesSchemata = new ArrayList<SchemaSource>();
+        this.referencesSchemata = new ArrayList<>();
     }
 
     public Source(Source source) {
@@ -49,25 +50,27 @@ public abstract class Source implements Comparable<Source> {
 
     public QueryExecutionFactory getExecutionFactory() {
         // TODO not thread safe but minor
-        if (queryFactory == null)
+        if (queryFactory == null) {
             queryFactory = initQueryFactory();
+        }
         return queryFactory;
     }
 
-    public java.util.Collection<SchemaSource> getReferencesSchemata() {
+    public Collection<SchemaSource> getReferencesSchemata() {
         return referencesSchemata;
     }
 
-    public void addReferencesSchemata(java.util.Collection<SchemaSource> schemata) {
+    public void addReferencesSchemata(Collection<SchemaSource> schemata) {
         this.referencesSchemata.addAll(schemata);
     }
 
     @Override
     public int compareTo(Source o) {
-        if (this.getPrefix().equals(o.getPrefix()) && this.getUri().equals(o.getUri()))
+        if (this.getPrefix().equals(o.getPrefix()) && this.getUri().equals(o.getUri())) {
             return 0;
-        else
+        } else {
             return this.getPrefix().compareTo(o.getPrefix());
+        }
     }
 
     @Override
