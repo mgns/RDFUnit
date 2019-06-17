@@ -170,9 +170,6 @@ public class RDFUnitConfiguration {
             }
         }
 
-
-
-
         // Set TestSource configuration
         if (this.endpointQueryCacheTTL > 0) {
             testSourceBuilder.setCacheTTL(this.endpointQueryCacheTTL);

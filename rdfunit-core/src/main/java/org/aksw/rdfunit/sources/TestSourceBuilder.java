@@ -11,6 +11,8 @@ import org.aksw.rdfunit.io.reader.RdfStreamReader;
 import java.io.BufferedInputStream;
 import java.util.Collection;
 import java.util.Collections;
+import org.apache.http.Header;
+import org.apache.http.message.BasicHeader;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -35,6 +37,7 @@ public class TestSourceBuilder {
     private Collection<String> endpointGraphs = null;
     private String endpointUsername = null;
     private String endpointPassword = null;
+    private Collection<Header> headers = null;
 
     public TestSourceBuilder setPrefixUri(String prefix, String uri) {
         this.sourceConfig = new SourceConfig(prefix, uri);
@@ -44,6 +47,7 @@ public class TestSourceBuilder {
     public TestSourceBuilder setEndpoint(String sparqlEndpoint, Collection<String> endpointGraphs) {
         return setEndpoint(sparqlEndpoint, endpointGraphs, "", "");
     }
+
     public TestSourceBuilder setEndpoint(String sparqlEndpoint, Collection<String> endpointGraphs, String username, String password) {
         testSourceType = TestSourceType.Endpoint;
         this.sparqlEndpoint = sparqlEndpoint.trim();
@@ -53,6 +57,9 @@ public class TestSourceBuilder {
         if (queryingConfig == null) {
             queryingConfig = QueryingConfig.createEndpoint();
         }
+
+        this.headers.add(new BasicHeader("Authorization", "Bearer 6061f998-f1bd-40d5-aebf-f318abaf27a6"));
+
         return  this;
     }
 
@@ -153,7 +160,7 @@ public class TestSourceBuilder {
             }
             checkNotNull(sparqlEndpoint);
             checkNotNull(endpointGraphs);
-            return new EndpointTestSource (sourceConfig, queryingConfig, referenceSchemata, sparqlEndpoint, endpointGraphs, endpointUsername, endpointPassword);
+            return new EndpointTestSource(sourceConfig, queryingConfig, referenceSchemata, sparqlEndpoint, endpointGraphs, endpointUsername, endpointPassword, headers);
         }
 
         if (queryingConfig == null) {
