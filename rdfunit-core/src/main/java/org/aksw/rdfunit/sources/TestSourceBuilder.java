@@ -1,5 +1,6 @@
 package org.aksw.rdfunit.sources;
 
+import java.util.ArrayList;
 import org.aksw.rdfunit.exceptions.UndefinedSerializationException;
 import org.aksw.rdfunit.io.format.FormatService;
 import org.aksw.rdfunit.io.format.SerializationFormat;
@@ -37,7 +38,7 @@ public class TestSourceBuilder {
     private Collection<String> endpointGraphs = null;
     private String endpointUsername = null;
     private String endpointPassword = null;
-    private Collection<Header> headers = null;
+    private Collection<Header> headers = new ArrayList<Header>();
 
     public TestSourceBuilder setPrefixUri(String prefix, String uri) {
         this.sourceConfig = new SourceConfig(prefix, uri);

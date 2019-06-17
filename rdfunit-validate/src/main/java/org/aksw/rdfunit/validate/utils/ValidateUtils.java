@@ -305,8 +305,8 @@ public final class ValidateUtils {
     private static void checkIfRequiredParametersMissing(CommandLine commandLine) throws ParameterException {
         if (!commandLine.hasOption("d")) {
             throw new ParameterException("Error: Required arguments are missing.");
-
         }
+
         if (commandLine.hasOption("e") && commandLine.hasOption("u")) {
             throw new ParameterException("Error: You have to select either an Endpoint or a Dump URI.");
         }

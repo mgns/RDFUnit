@@ -31,7 +31,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Dimitris Kontokostas
  * @since 5/6/14 2:49 PM
-
  */
 @Slf4j
 public class SimpleTestExecutorMonitor implements TestExecutorMonitor {
