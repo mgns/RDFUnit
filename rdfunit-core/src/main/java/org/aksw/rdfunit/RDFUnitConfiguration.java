@@ -1,31 +1,29 @@
 package org.aksw.rdfunit;
 
+import com.google.common.collect.Lists;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
-import org.aksw.rdfunit.Utils.CacheUtils;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.enums.TestCaseExecutionType;
 import org.aksw.rdfunit.exceptions.UndefinedSchemaException;
 import org.aksw.rdfunit.exceptions.UndefinedSerializationException;
-import org.aksw.rdfunit.io.RDFReader;
-import org.aksw.rdfunit.io.RDFStreamReader;
+import org.aksw.rdfunit.io.format.FormatService;
 import org.aksw.rdfunit.io.format.SerializationFormat;
-import org.aksw.rdfunit.services.FormatService;
-import org.aksw.rdfunit.services.SchemaService;
+import org.aksw.rdfunit.io.reader.RdfReaderFactory;
 import org.aksw.rdfunit.sources.*;
-import org.aksw.rdfunit.statistics.DatasetStatistics;
+import org.aksw.rdfunit.statistics.NamespaceStatistics;
+import org.aksw.rdfunit.utils.RDFUnitUtils;
+import org.aksw.rdfunit.utils.UriToPathUtils;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
+ * Holds a configuration for a complete test
+ * TODO: Got too big, maybe break it down a bit
+ * TODO: Got really really big!!!
+ *
  * @author Dimitris Kontokostas
- *         Holds a configuration for a complete test
- *         TODO: Got too big, maybe break it down a bit
- *         TODO: Got really really big!!!
- * @since 11/15/13 11:50 AM
+ * @since 11 /15/13 11:50 AM
  */
 public class RDFUnitConfiguration {
 
@@ -38,22 +36,23 @@ public class RDFUnitConfiguration {
     private final String testFolder;
 
     /* SPARQL endpoint configuration */
-    private String endpointURI = null;
-    private Collection<String> endpointGraphs = null;
-    private long endpointQueryDelayMS = EndpointTestSource.QUERY_DELAY;
-    private long endpointQueryCacheTTL = EndpointTestSource.CACHE_TTL;
-    private long endpointQueryPagination = EndpointTestSource.PAGINATION;
-    private long endpointQueryLimit = EndpointTestSource.QUERY_LIMIT;
+    private long endpointQueryDelayMS = -1;
+    private long endpointQueryCacheTTL = -1;
+    private long endpointQueryPagination = -1;
+    private long endpointQueryLimit = -1;
 
     /* Dereference testing (if different from datasetURI) */
     private String customDereferenceURI = null;
 
-    /* Use text directly as a source */
-    private String customTextSource = null;
-    private SerializationFormat customTextFormat = null;
+    /* used to cache the test source when we initially do stats for auto loading test cases */
+    private TestSource testSource = null;
+    private TestSourceBuilder testSourceBuilder = new TestSourceBuilder();
 
     /* list of schemas for testing a dataset */
     private Collection<SchemaSource> schemas = null;
+
+    /* list of schemas always to be excluded from test generation */
+    private ArrayList<SchemaSource> excludeSchemata = Lists.newArrayList();
 
     private EnrichedSchemaSource enrichedSchema = null;
 
@@ -65,6 +64,9 @@ public class RDFUnitConfiguration {
 
     /* if set to false it will load only manual test cases */
     private boolean autoTestsEnabled = true;
+
+    /* if set to true, in addition to the schemata provided or discovered, all transitively discovered import schemata (owl:imports) are included into the schema set */
+    private boolean augmentWithOwlImports = false;
 
     /* Execution type */
     private TestCaseExecutionType testCaseExecutionType = TestCaseExecutionType.aggregatedTestCaseResult;
@@ -84,50 +86,45 @@ public class RDFUnitConfiguration {
         this.dataFolder = dataFolder;
         this.testFolder = testFolder;
 
-        prefix = CacheUtils.getAutoPrefixForURI(datasetURI); // default prefix
+        prefix = UriToPathUtils.getAutoPrefixForURI(datasetURI); // default prefix
+        setExcludeSchemataFromPrefixes(Arrays.asList("rdf", "rdfs", "owl", "rdfa")); // set default excludes
     }
 
-    public void setEndpointConfiguration(String endpointURI, Collection<String> endpointGraphs) {
-        setEndpointConfiguration(endpointURI, endpointGraphs, this.endpointQueryDelayMS, this.endpointQueryCacheTTL, this.endpointQueryPagination);
-    }
-
-    public void setEndpointConfiguration(String endpointURI, Collection<String> endpointGraphs, long endpointDelayinMS, long endpointCacheTTL, long endpointPagination) {
-        setEndpointConfiguration(endpointURI,endpointGraphs,endpointDelayinMS,endpointCacheTTL,endpointPagination, this.endpointQueryLimit);
-    }
-
-    public void setEndpointConfiguration(String endpointURI, Collection<String> endpointGraphs, long endpointQueryDelayMS, long endpointQueryCacheTTL, long endpointQueryPagination, long endpointQueryLimit) {
-        this.endpointURI = endpointURI;
-        this.endpointGraphs = new ArrayList<>();
-        this.endpointGraphs.addAll(endpointGraphs);
-        this.endpointQueryDelayMS = endpointQueryDelayMS;
-        this.endpointQueryCacheTTL = endpointQueryCacheTTL;
-        this.endpointQueryPagination = endpointQueryPagination;
-        this.endpointQueryLimit = endpointQueryLimit;
+    public void setEndpointConfiguration(String endpointURI, Collection<String> endpointGraphs, String username, String password) {
+        this.testSourceBuilder.setEndpoint(endpointURI, endpointGraphs, username, password);
     }
 
     public void setCustomDereferenceURI(String customDereferenceURI) {
+        this.testSourceBuilder.setImMemFromUri(customDereferenceURI);
         this.customDereferenceURI = customDereferenceURI;
     }
 
     public void setCustomTextSource(String text, String format) throws UndefinedSerializationException {
-        this.customTextSource = text;
-        this.customTextFormat = FormatService.getInputFormat(format);
-        if (this.customTextFormat == null) {
-            throw new UndefinedSerializationException(format);
-        }
-
-        //Clear endpoint / custom dereference
-        this.endpointURI = null;
-        this.customDereferenceURI = null;
+        testSourceBuilder.setInMemFromCustomText(text, format);
     }
 
     public void setAutoSchemataFromQEF(QueryExecutionFactory qef) {
-        DatasetStatistics datasetStatistics = new DatasetStatistics(qef, false);
-        this.schemas = datasetStatistics.getIdentifiedSchemata();
+        setAutoSchemataFromQEF(qef, false);
+    }
+
+    public void setAutoSchemataFromQEF(QueryExecutionFactory qef, boolean all) {
+        setAutoSchemataFromQEF(qef, all, true);
+    }
+
+    public void setAutoSchemataFromQEF(QueryExecutionFactory qef, boolean all, boolean limitToKnown) {
+
+        NamespaceStatistics namespaceStatistics;
+        if (all) {
+            namespaceStatistics = limitToKnown ? NamespaceStatistics.createCompleteNSStatisticsKnown(this) : NamespaceStatistics.createCompleteNSStatisticsAll(this);
+        } else {
+            namespaceStatistics = limitToKnown ? NamespaceStatistics.createOntologyNSStatisticsKnown(this) : NamespaceStatistics.createOntologyNSStatisticsAll(this);
+        }
+        checkNotNull(namespaceStatistics);
+        setSchemata(namespaceStatistics.getNamespaces(qef));
     }
 
     public void setSchemataFromPrefixes(Collection<String> schemaPrefixes) throws UndefinedSchemaException {
-        this.schemas = SchemaService.getSourceList(testFolder, schemaPrefixes);
+        this.setSchemata(SchemaService.getSourceList(testFolder, schemaPrefixes));
     }
 
     public void setSchemata(Collection<SchemaSource> schemata) {
@@ -137,68 +134,98 @@ public class RDFUnitConfiguration {
 
     public void setEnrichedSchema(String enrichedSchemaPrefix) {
         if (enrichedSchemaPrefix != null && !enrichedSchemaPrefix.isEmpty()) {
-            enrichedSchema = SourceFactory.createEnrichedSchemaSourceFromCache(testFolder, enrichedSchemaPrefix, datasetURI);
+            enrichedSchema = SchemaSourceFactory.createEnrichedSchemaSourceFromCache(testFolder, enrichedSchemaPrefix, datasetURI);
+        }
+    }
+
+    public void setExcludeSchemata(Collection<SchemaSource> schemata){
+        this.excludeSchemata = new ArrayList<>();
+        this.excludeSchemata.addAll(schemata);
+    }
+
+    public void setAugmentWithOwlImports(boolean augmentWithOwlImports) {
+        this.augmentWithOwlImports = augmentWithOwlImports;
+    }
+
+    public boolean isAugmentWithOwlImports() {
+        return augmentWithOwlImports;
+    }
+
+    public void setExcludeSchemataFromPrefixes(Collection<String> schemaPrefixes) {
+        this.excludeSchemata = new ArrayList<>();
+        for(String prefix : schemaPrefixes){
+            Optional<SchemaSource> ss = SchemaService.getSourceFromPrefix(prefix);
+            ss.ifPresent(schemaSource -> this.excludeSchemata.add(schemaSource));
         }
     }
 
     public Collection<SchemaSource> getAllSchemata() {
-        Collection<SchemaSource> allSchemas = new ArrayList<>();
+        Set<SchemaSource> allSchemas = new HashSet<>();
         if (this.schemas != null) {
             allSchemas.addAll(this.schemas);
         }
         if (this.enrichedSchema != null) {
             allSchemas.add(this.enrichedSchema);
         }
-
+        Set<SchemaSource> excludeable = new HashSet<>(this.excludeSchemata);
+        excludeable.removeAll(allSchemas);      //overriding excludes if explicitly provided
+        if(augmentWithOwlImports){
+            allSchemas.addAll(RDFUnitUtils.augmentWithOwlImports(allSchemas));
+        }
+        allSchemas.removeAll(excludeable);
         return allSchemas;
     }
 
-    public Source getTestSource() {
+    public TestSource getTestSource() {
 
-        if (endpointURI != null && !endpointURI.isEmpty()) {
-            // return a SPARQL Endpoint source
-            EndpointTestSource endpointSource = new EndpointTestSource(
-                    CacheUtils.getAutoPrefixForURI(datasetURI),
-                    datasetURI,
-                    endpointURI,
-                    endpointGraphs,
-                    getAllSchemata());
-
-            endpointSource.setQueryDelay(this.endpointQueryDelayMS);
-            endpointSource.setCacheTTL(this.endpointQueryCacheTTL);
-            endpointSource.setPagination(this.endpointQueryPagination);
-            endpointSource.setQueryLimit(this.endpointQueryLimit);
-
-            return endpointSource;
-        }
-
-        // Return a text source
-        if (customTextSource != null) {
-            InputStream is = null;
-            try {
-                is = new ByteArrayInputStream(customTextSource.getBytes("UTF8"));
-            } catch (UnsupportedEncodingException e) {
-                throw new IllegalArgumentException("Invalid source name: " + customTextSource, e);
+        if (testSource != null) {
+            // When we use auto discovery of schemata we create a SchemaSource with no references
+            // After we identify the schemata we add them in the existing TestSource to avoid re-loading the source
+            Collection<SchemaSource> schemata = getAllSchemata();
+            if (testSource.getReferencesSchemata().isEmpty() && !schemata.isEmpty()) {
+                testSource = TestSourceFactory.createTestSource(testSource, schemata);
             }
-            RDFReader textReader = new RDFStreamReader(is, customTextFormat.getName());
-            return new DumpTestSource(
-                    CacheUtils.getAutoPrefixForURI(datasetURI),
-                    datasetURI,
-                    textReader,
-                    getAllSchemata());
+            return testSource;
         }
 
-        // return a DumpSource
-        String tmp_customDereferenceURI = datasetURI;
-
-        if (customDereferenceURI != null && !customDereferenceURI.isEmpty()) {
-            tmp_customDereferenceURI = customDereferenceURI;
+        testSourceBuilder.setPrefixUri(prefix, datasetURI);
+        testSourceBuilder.setReferenceSchemata(getAllSchemata());
+        if (customDereferenceURI != null && "-".equals(customDereferenceURI)) {
+            testSourceBuilder.setInMemFromPipe();
         }
-        return new DumpTestSource(
-                CacheUtils.getAutoPrefixForURI(datasetURI),
-                datasetURI,
-                tmp_customDereferenceURI,
-                getAllSchemata());
+        if (getEndpointURI() == null || getEndpointURI().isEmpty()) {
+            String tmpCustomDereferenceURI = datasetURI;
+            if (customDereferenceURI != null && !customDereferenceURI.isEmpty()) {
+                tmpCustomDereferenceURI = customDereferenceURI;
+            }
+            if (testSourceBuilder.getInMemReader() == null) { // if the reader is not set already e.g. text
+                testSourceBuilder.setInMemReader(RdfReaderFactory.createDereferenceReader(tmpCustomDereferenceURI));
+            }
+        }
+
+
+
+
+        // Set TestSource configuration
+        if (this.endpointQueryCacheTTL > 0) {
+            testSourceBuilder.setCacheTTL(this.endpointQueryCacheTTL);
+        }
+
+        if (this.endpointQueryDelayMS > 0) {
+            testSourceBuilder.setQueryDelay(this.endpointQueryDelayMS);
+        }
+
+        if (this.endpointQueryPagination > 0) {
+            testSourceBuilder.setPagination(this.endpointQueryPagination);
+        }
+
+        if (this.endpointQueryLimit > 0) {
+            testSourceBuilder.setQueryLimit(this.endpointQueryLimit);
+        }
+
+        testSource = testSourceBuilder.build();
+
+        return testSource;
     }
 
     public void setOutputFormatTypes(Collection<String> outputNames) throws UndefinedSerializationException {
@@ -280,11 +307,11 @@ public class RDFUnitConfiguration {
     }
 
     public String getEndpointURI() {
-        return endpointURI;
+        return testSourceBuilder.getSparqlEndpoint();
     }
 
     public Collection<String> getEndpointGraphs() {
-        return endpointGraphs;
+        return testSourceBuilder.getEndpointGraphs();
     }
 
     public String getCustomDereferenceURI() {
@@ -300,7 +327,7 @@ public class RDFUnitConfiguration {
     }
 
     public SerializationFormat geFirstOutputFormat() {
-        return RDFUnitUtils.getFirstItemInCollection(outputFormats);
+        return RDFUnitUtils.getFirstItemInCollection(outputFormats).orElseThrow(() -> new IllegalStateException("No output format was provided."));
     }
 
     public long getEndpointQueryDelayMS() {
@@ -333,5 +360,9 @@ public class RDFUnitConfiguration {
 
     public void setEndpointQueryLimit(long endpointQueryLimit) {
         this.endpointQueryLimit = endpointQueryLimit;
+    }
+
+    public Collection<SchemaSource> getExcludeSchemata() {
+        return excludeSchemata;
     }
 }

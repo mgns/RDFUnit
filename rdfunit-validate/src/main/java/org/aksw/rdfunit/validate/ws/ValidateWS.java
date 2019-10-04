@@ -1,18 +1,17 @@
 package org.aksw.rdfunit.validate.ws;
 
-import com.hp.hpl.jena.rdf.model.Model;
 import org.aksw.rdfunit.RDFUnit;
 import org.aksw.rdfunit.RDFUnitConfiguration;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
 import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
-import org.aksw.rdfunit.exceptions.TripleReaderException;
-import org.aksw.rdfunit.io.RDFReader;
-import org.aksw.rdfunit.sources.Source;
-import org.aksw.rdfunit.tests.TestSuite;
+import org.aksw.rdfunit.model.interfaces.TestGenerator;
+import org.aksw.rdfunit.model.interfaces.TestSuite;
+import org.aksw.rdfunit.model.interfaces.results.TestExecution;
+import org.aksw.rdfunit.sources.TestSource;
 import org.aksw.rdfunit.tests.executors.TestExecutor;
 import org.aksw.rdfunit.tests.executors.TestExecutorFactory;
 import org.aksw.rdfunit.tests.executors.monitors.SimpleTestExecutorMonitor;
 import org.aksw.rdfunit.tests.generators.TestGeneratorExecutor;
+import org.aksw.rdfunit.utils.RDFUnitUtils;
 import org.aksw.rdfunit.validate.ParameterException;
 import org.aksw.rdfunit.validate.utils.ValidateUtils;
 import org.apache.commons.cli.CommandLine;
@@ -21,60 +20,72 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Collection;
 
 /**
+ * Validation as a web service
+ *
  * @author Dimitris Kontokostas
- *         Validation as a web service
  * @since 6/13/14 1:50 PM
  */
-public class ValidateWS extends RDFUnitWebService {
-    private static final Logger log = LoggerFactory.getLogger(ValidateWS.class);
+public class ValidateWS extends AbstractRDFUnitWebService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ValidateWS.class);
 
-    private final String dataFolder = "data/";
-    private final String testFolder = dataFolder + "tests/";
-    private final RDFReader patternReader = RDFUnitUtils.getPatternsFromResource();
-    private final RDFReader testGeneratorReader = RDFUnitUtils.getAutoGeneratorsFromResource();
-    private final RDFUnit rdfunit = new RDFUnit();
+    // TODO: pass dataFolder in configuration initialization
+    private Collection<TestGenerator> autogenerators;
+
 
     @Override
-    public void init() throws ServletException {
-        RDFUnitUtils.fillSchemaServiceFromLOV();
-        RDFUnitUtils.fillSchemaServiceFromFile(ValidateWS.class.getResourceAsStream("/org/aksw/rdfunit/schemaDecl.csv"));
+    public void init() {
         try {
-            rdfunit.initPatternsAndGenerators(patternReader, testGeneratorReader);
-        } catch (TripleReaderException e) {
-            log.error("Cannot read patterns and/or pattern generators");
+            RDFUnitUtils.fillSchemaServiceFromLOV();
+            RDFUnitUtils.fillSchemaServiceFromSchemaDecl();
+            RDFUnitUtils.fillSchemaServiceWithStandardVocabularies();
+
+            RDFUnit rdfunit = RDFUnit
+                    .createWithAllGenerators()
+                    .init();
+            autogenerators = rdfunit.getAutoGenerators();
+        } catch (IllegalArgumentException e) {
+            LOGGER.error("Cannot read patterns and/or pattern generators", e);
+        } catch (IOException e) {
+            LOGGER.error("Cannot read schema declarations", e);
         }
     }
 
-    @Override
-    protected synchronized TestSuite getTestSuite(final RDFUnitConfiguration configuration, final Source dataset) {
-        TestGeneratorExecutor testGeneratorExecutor = new TestGeneratorExecutor(
-                configuration.isAutoTestsEnabled(),
-                configuration.isTestCacheEnabled(),
-                configuration.isManualTestsEnabled());
-        return testGeneratorExecutor.generateTestSuite(configuration.getTestFolder(), dataset, rdfunit.getAutoGenerators());
-    }
 
     @Override
-    protected Model validate(final RDFUnitConfiguration configuration, final Source dataset, final TestSuite testSuite) throws TestCaseExecutionException {
+    protected TestSuite getTestSuite(final RDFUnitConfiguration configuration, final TestSource dataset) {
+        synchronized(this) {
+            TestGeneratorExecutor testGeneratorExecutor = new TestGeneratorExecutor(
+                    configuration.isAutoTestsEnabled(),
+                    configuration.isTestCacheEnabled(),
+                    configuration.isManualTestsEnabled());
+            return testGeneratorExecutor.generateTestSuite(configuration.getTestFolder(), dataset, autogenerators);
+        }
+    }
+
+
+    @Override
+    protected TestExecution validate(final RDFUnitConfiguration configuration, final TestSource dataset, final TestSuite testSuite) throws TestCaseExecutionException {
         final TestExecutor testExecutor = TestExecutorFactory.createTestExecutor(configuration.getTestCaseExecutionType());
         if (testExecutor == null) {
             throw new TestCaseExecutionException(null, "Cannot initialize test executor. Exiting");
         }
         final SimpleTestExecutorMonitor testExecutorMonitor = new SimpleTestExecutorMonitor();
+        testExecutorMonitor.setExecutionType(configuration.getTestCaseExecutionType());
         testExecutor.addTestExecutorMonitor(testExecutorMonitor);
 
         // warning, caches intermediate results
-        testExecutor.execute(dataset, testSuite, 0);
+        testExecutor.execute(dataset, testSuite);
 
-        return testExecutorMonitor.getModel();
+        return testExecutorMonitor.getTestExecution();
     }
+
 
     @Override
     protected RDFUnitConfiguration getConfiguration(HttpServletRequest httpServletRequest) throws ParameterException {
@@ -103,6 +114,8 @@ public class ValidateWS extends RDFUnitWebService {
         return configuration;
     }
 
+
+    @Override
     protected void printHelpMessage(HttpServletResponse httpServletResponse) throws IOException {
         httpServletResponse.setContentType("text/html");
         PrintWriter printWriter = httpServletResponse.getWriter();
@@ -128,6 +141,7 @@ public class ValidateWS extends RDFUnitWebService {
 
         return args;
     }
+
 
 
     @Override

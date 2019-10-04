@@ -1,24 +1,29 @@
 package org.aksw.rdfunit.tests.executors;
 
-import com.hp.hpl.jena.query.*;
-import com.hp.hpl.jena.sparql.engine.http.QueryExceptionHTTP;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
-import org.aksw.rdfunit.Utils.SparqlUtils;
-import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
-import org.aksw.rdfunit.sources.Source;
-import org.aksw.rdfunit.tests.QueryGenerationFactory;
-import org.aksw.rdfunit.tests.TestCase;
-import org.aksw.rdfunit.tests.results.AggregatedTestCaseResult;
-import org.aksw.rdfunit.tests.results.TestCaseResult;
+import org.aksw.rdfunit.model.impl.results.AggregatedTestCaseResultImpl;
+import org.aksw.rdfunit.model.interfaces.TestCase;
+import org.aksw.rdfunit.model.interfaces.results.TestCaseResult;
+import org.aksw.rdfunit.sources.TestSource;
+import org.aksw.rdfunit.tests.query_generation.QueryGenerationFactory;
+import org.aksw.rdfunit.utils.SparqlUtils;
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QuerySolution;
+import org.apache.jena.query.ResultSet;
+import org.apache.jena.sparql.engine.http.QueryExceptionHTTP;
 
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Test Executor that extends StatusExecutor and in addition reports error counts and prevalence for every test case
  *
  * @author Dimitris Kontokostas
  * @since 2 /2/14 4:05 PM
+
  */
 public class AggregatedTestExecutor extends TestExecutor {
 
@@ -31,14 +36,15 @@ public class AggregatedTestExecutor extends TestExecutor {
         super(queryGenerationFactory);
     }
 
+
     @Override
-    protected Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException {
+    protected Collection<TestCaseResult> executeSingleTest(TestSource testSource, TestCase testCase) {
         int total = -1, prevalence = -1;
 
         try {
             Query prevalenceQuery = testCase.getSparqlPrevalenceQuery();
             if (prevalenceQuery != null) {
-                prevalence = getCountNumber(source.getExecutionFactory(), testCase.getSparqlPrevalenceQuery(), "total");
+                prevalence = getCountNumber(testSource.getExecutionFactory(), testCase.getSparqlPrevalenceQuery(), "total");
             }
         } catch (QueryExceptionHTTP e) {
             if (SparqlUtils.checkStatusForTimeout(e)) {
@@ -51,7 +57,7 @@ public class AggregatedTestExecutor extends TestExecutor {
         if (prevalence != 0) {
             // if prevalence !=0 calculate total
             try {
-                total = getCountNumber(source.getExecutionFactory(), queryGenerationFactory.getSparqlQuery(testCase), "total");
+                total = getCountNumber(testSource.getExecutionFactory(), queryGenerationFactory.getSparqlQuery(testCase), "total");
             } catch (QueryExceptionHTTP e) {
                 if (SparqlUtils.checkStatusForTimeout(e)) {
                     total = -1;
@@ -65,31 +71,22 @@ public class AggregatedTestExecutor extends TestExecutor {
         }
 
         // No need to throw exception here, class supports status
-        return Arrays.<TestCaseResult>asList(new AggregatedTestCaseResult(testCase, total, prevalence));
-    }
-
-    private int getCountNumber(QueryExecutionFactory model, String query, String var) {
-        return getCountNumber(model, QueryFactory.create(query), var);
+        return Collections.singletonList(new AggregatedTestCaseResultImpl(testCase, total, prevalence));
     }
 
     private int getCountNumber(QueryExecutionFactory model, Query query, String var) {
 
-        assert (query != null);
-        assert (var != null);
+        checkNotNull(query);
+        checkNotNull(var);
 
         int result = 0;
-        QueryExecution qe = null;
-        try {
-            qe = model.createQueryExecution(query);
+        try ( QueryExecution qe = model.createQueryExecution(query) ) {
+
             ResultSet results = qe.execSelect();
 
             if (results != null && results.hasNext()) {
                 QuerySolution qs = results.next();
                 result = qs.get(var).asLiteral().getInt();
-            }
-        } finally {
-            if (qe != null) {
-                qe.close();
             }
         }
 

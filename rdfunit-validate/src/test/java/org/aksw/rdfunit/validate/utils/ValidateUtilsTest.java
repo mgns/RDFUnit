@@ -1,59 +1,60 @@
 package org.aksw.rdfunit.validate.utils;
 
 import org.aksw.rdfunit.RDFUnitConfiguration;
-import org.aksw.rdfunit.services.SchemaService;
 import org.aksw.rdfunit.sources.DumpTestSource;
 import org.aksw.rdfunit.sources.EndpointTestSource;
+import org.aksw.rdfunit.sources.SchemaService;
 import org.aksw.rdfunit.validate.ParameterException;
-import org.aksw.rdfunit.validate.utils.ValidateUtils;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.Options;
+import org.apache.commons.cli.*;
+import org.junit.Test;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
 public class ValidateUtilsTest {
 
-    @org.junit.Test
-    public void testGetConfigurationFromArguments() throws Exception {
+    @Test
+    public void testGetConfigurationFromArguments() throws ParseException, ParameterException {
         Options cliOptions = ValidateUtils.getCliOptions();
 
-        String args = "";
-        RDFUnitConfiguration configuration = null;
-        CommandLine commandLine = null;
-        CommandLineParser cliParser = new GnuParser();
+        String args;
+        RDFUnitConfiguration configuration;
+        CommandLine commandLine;
+        CommandLineParser cliParser = new DefaultParser();
 
         // Set two dummy schemas for testing
         SchemaService.addSchemaDecl("rdfs", "http://www.w3.org/2000/01/rdf-schema#");
         SchemaService.addSchemaDecl("owl", "http://www.w3.org/2002/07/owl#");
+        SchemaService.addSchemaDecl("dataid", "http://dataid.dbpedia.org/ns/core#");
+        SchemaService.addSchemaDecl("prov", "http://www.w3.org/ns/prov#");
+        SchemaService.addSchemaDecl("foaf", "http://xmlns.com/foaf/0.1/");
+        SchemaService.addSchemaDecl("void", "http://rdfs.org/ns/void#");
+        SchemaService.addSchemaDecl("dcat", "http://www.w3.org/ns/dcat#");
 
-        /**
-         * Sample endpoint configuration
-         */
-        args = " -d http://dbpedia.org -e http://dbpedia.org/sparql -g http://dbpedia.org -s rdfs,owl -p dbo -A -T 10 -P 10 -D 10 -L 10";
+        args = " -d http://dbpedia.org -e http://dbpedia.org/sparql -g http://dbpedia.org -i -s rdfs,owl,dataid -p dbo -A -T 10 -P 10 -D 10 -L 10";
         commandLine = cliParser.parse(cliOptions, args.split(" "));
         configuration = ValidateUtils.getConfigurationFromArguments(commandLine);
 
         assertEquals(configuration.getDatasetURI(), "http://dbpedia.org");
         assertEquals(configuration.getPrefix(), "dbpedia.org");
+        assertTrue(configuration.isAugmentWithOwlImports());
 
         // Get endpoint details
         assertEquals(configuration.getEndpointURI(), "http://dbpedia.org/sparql");
         assertNull(configuration.getCustomDereferenceURI());
         assertTrue(configuration.getTestSource() instanceof EndpointTestSource);
-        assertEquals(configuration.getEndpointGraphs(), Arrays.asList("http://dbpedia.org"));
+        assertEquals(configuration.getEndpointGraphs(), Collections.singletonList("http://dbpedia.org"));
 
         // get schemas
-        assertEquals(configuration.getAllSchemata().size(), 3); //2 schema + 1 enriched
+        assertEquals(configuration.getAllSchemata().size(), 8); //3 schema + 1 enriched + 4 imported
         assertNotNull(configuration.getEnrichedSchema());
 
         // data folder
-        assertEquals(configuration.getDataFolder(), "../data/");
-        assertEquals(configuration.getTestFolder(), "../data/tests/");
+        assertEquals(configuration.getDataFolder(), "data/");
+        assertEquals(configuration.getTestFolder(), "data/tests/");
 
         // output formats
         assertEquals(configuration.getOutputFormats().size(), 1); // html by default
@@ -65,19 +66,15 @@ public class ValidateUtilsTest {
 
         // Limit / pagination / TTL / Delay
         EndpointTestSource endpointTestSource = (EndpointTestSource) configuration.getTestSource();
-        assertEquals(configuration.getEndpointQueryCacheTTL(), 10l * 60l * 1000l);
+        assertEquals(configuration.getEndpointQueryCacheTTL(), 10L * 60L * 1000L);
         assertEquals(configuration.getEndpointQueryCacheTTL(), endpointTestSource.getCacheTTL());
-        assertEquals(configuration.getEndpointQueryDelayMS(), 10l);
+        assertEquals(configuration.getEndpointQueryDelayMS(), 10L);
         assertEquals(configuration.getEndpointQueryDelayMS(), endpointTestSource.getQueryDelay());
-        assertEquals(configuration.getEndpointQueryPagination(), 10l);
+        assertEquals(configuration.getEndpointQueryPagination(), 10L);
         assertEquals(configuration.getEndpointQueryPagination(), endpointTestSource.getPagination());
-        assertEquals(configuration.getEndpointQueryLimit(), 10l);
+        assertEquals(configuration.getEndpointQueryLimit(), 10L);
         assertEquals(configuration.getEndpointQueryLimit(), endpointTestSource.getQueryLimit());
 
-
-        /**
-         * Sample dereference configuration
-         */
 
         args = " -d http://dbpedia.org -u http://custom.dbpedia.org -s rdfs -f /home/rdfunit/ -M -o html,turtle";
         commandLine = cliParser.parse(cliOptions, args.split(" "));
@@ -96,11 +93,11 @@ public class ValidateUtilsTest {
         assertEquals(configuration.getTestFolder(), "/home/rdfunit/tests/");
 
         // Manual / Auto test cases
-        assertEquals(configuration.isManualTestsEnabled(), false);
-        assertEquals(configuration.isAutoTestsEnabled(), true);
-        assertEquals(configuration.isTestCacheEnabled(), true);
+        assertFalse(configuration.isManualTestsEnabled());
+        assertTrue(configuration.isAutoTestsEnabled());
+        assertTrue(configuration.isTestCacheEnabled());
 
-        assertEquals(configuration.isCalculateCoverageEnabled(), false);
+        assertFalse(configuration.isCalculateCoverageEnabled());
         assertTrue(configuration.getTestSource() instanceof DumpTestSource);
 
 
@@ -108,9 +105,9 @@ public class ValidateUtilsTest {
         commandLine = cliParser.parse(cliOptions, args.split(" "));
         configuration = ValidateUtils.getConfigurationFromArguments(commandLine);
 
-        assertEquals(configuration.isManualTestsEnabled(), true);
-        assertEquals(configuration.isTestCacheEnabled(), false);
-        assertEquals(configuration.isCalculateCoverageEnabled(), true);
+        assertTrue(configuration.isManualTestsEnabled());
+        assertFalse(configuration.isTestCacheEnabled());
+        assertTrue(configuration.isCalculateCoverageEnabled());
 
         // Expect exception for wrong inputs
         HashMap<String, String> exceptionsExpected = new HashMap<>();
@@ -124,8 +121,8 @@ public class ValidateUtilsTest {
                 " -d http://dbpedia.org -e http://dbpedia.org/sparql -s rdf -l log",
                 "Expected exception for asking unsupported -l");
         exceptionsExpected.put(
-                " -d http://dbpedia.org -s foaf ",
-                "Expected exception for asking for undefined 'foaf' schema ");
+                " -d http://dbpedia.org -s ex ",
+                "Expected exception for asking for undefined 'ex' schema ");
         exceptionsExpected.put(
                 " -d http://dbpedia.org -s rdf -o htmln",
                 "Expected exception for asking for undefined serialization 'htmln'");
@@ -166,17 +163,16 @@ public class ValidateUtilsTest {
                 "Expected exception for asking for setting non-numeric in -L");
 
 
-
-        for (String arg : exceptionsExpected.keySet()) {
+        for (Map.Entry<String, String> entry : exceptionsExpected.entrySet()) {
 
             try {
-                commandLine = cliParser.parse(cliOptions, arg.split(" "));
+                commandLine = cliParser.parse(cliOptions, entry.getKey().split(" "));
                 configuration = ValidateUtils.getConfigurationFromArguments(commandLine);
-                fail(exceptionsExpected.get(arg));
+                fail(entry.getValue());
             } catch (ParameterException e) {
+                // Expected exception
+                // Do nothing here
             }
         }
-
-
     }
 }

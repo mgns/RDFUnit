@@ -1,26 +1,37 @@
 package org.aksw.rdfunit.sources;
 
-import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.rdfunit.enums.TestAppliesTo;
 
 /**
  * @author Dimitris Kontokostas
- *         Description
  * @since 9/16/13 1:57 PM
  */
-public class ApplicationSource extends Source {
+public class ApplicationSource implements Source {
 
-    public ApplicationSource(String prefix, String uri) {
-        super(prefix, uri);
+
+    private final SourceConfig sourceConfig;
+
+    ApplicationSource(String prefix, String uri) {
+        this.sourceConfig = new SourceConfig(prefix, uri);
     }
+
+
+    @Override
+    public String getPrefix() {
+        return sourceConfig.getPrefix();
+    }
+
+
+    @Override
+    public String getUri() {
+        return sourceConfig.getUri();
+    }
+
 
     @Override
     public TestAppliesTo getSourceType() {
         return TestAppliesTo.Application;
     }
 
-    @Override
-    protected QueryExecutionFactory initQueryFactory() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
+
 }

@@ -1,18 +1,17 @@
 package org.aksw.rdfunit.tests.executors;
 
-import com.hp.hpl.jena.query.QueryExecution;
-import com.hp.hpl.jena.sparql.engine.http.QueryExceptionHTTP;
-import org.aksw.rdfunit.Utils.SparqlUtils;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
-import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
-import org.aksw.rdfunit.sources.Source;
-import org.aksw.rdfunit.tests.QueryGenerationFactory;
-import org.aksw.rdfunit.tests.TestCase;
-import org.aksw.rdfunit.tests.results.StatusTestCaseResult;
-import org.aksw.rdfunit.tests.results.TestCaseResult;
+import org.aksw.rdfunit.model.impl.results.StatusTestCaseResultImpl;
+import org.aksw.rdfunit.model.interfaces.TestCase;
+import org.aksw.rdfunit.model.interfaces.results.TestCaseResult;
+import org.aksw.rdfunit.sources.TestSource;
+import org.aksw.rdfunit.tests.query_generation.QueryGenerationFactory;
+import org.aksw.rdfunit.utils.SparqlUtils;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.sparql.engine.http.QueryExceptionHTTP;
 
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 
 
 /**
@@ -20,6 +19,7 @@ import java.util.Collection;
  *
  * @author Dimitris Kontokostas
  * @since 2 /2/14 3:49 PM
+
  */
 public class StatusTestExecutor extends TestExecutor {
     /**
@@ -31,14 +31,14 @@ public class StatusTestExecutor extends TestExecutor {
         super(queryGenerationFactory);
     }
 
+
     @Override
-    protected Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException {
+    protected Collection<TestCaseResult> executeSingleTest(TestSource testSource, TestCase testCase) {
 
         TestCaseResultStatus status = TestCaseResultStatus.Error;
-        QueryExecution qe = null;
 
-        try {
-            qe = source.getExecutionFactory().createQueryExecution(queryGenerationFactory.getSparqlQuery(testCase));
+
+        try (QueryExecution qe = testSource.getExecutionFactory().createQueryExecution(queryGenerationFactory.getSparqlQuery(testCase))) {
             boolean fail = qe.execAsk();
 
             if (fail) {
@@ -51,15 +51,13 @@ public class StatusTestExecutor extends TestExecutor {
             // No need to throw exception here, class supports status
             if (SparqlUtils.checkStatusForTimeout(e)) {
                 status = TestCaseResultStatus.Timeout;
+            } else {
+                status = TestCaseResultStatus.Error;
             }
 
-        } finally {
-            if (qe != null) {
-                qe.close();
-            }
         }
 
-        return Arrays.<TestCaseResult>asList(new StatusTestCaseResult(testCase, status));
+        return Collections.singletonList(new StatusTestCaseResultImpl(testCase, status));
     }
 
 }

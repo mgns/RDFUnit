@@ -3,9 +3,10 @@ package org.aksw.rdfunit.exceptions;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
 
 /**
+ *
  * @author Dimitris Kontokostas
- *         Description
  * @since 1/5/14 2:27 PM
+
  */
 public class TestCaseExecutionException extends Exception {
 

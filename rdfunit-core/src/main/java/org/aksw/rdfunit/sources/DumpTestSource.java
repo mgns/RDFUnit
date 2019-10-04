@@ -1,15 +1,15 @@
 package org.aksw.rdfunit.sources;
 
-import com.hp.hpl.jena.ontology.OntModel;
-import com.hp.hpl.jena.ontology.OntModelSpec;
-import com.hp.hpl.jena.rdf.model.ModelFactory;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
-import org.aksw.rdfunit.enums.TestAppliesTo;
-import org.aksw.rdfunit.io.RDFReader;
-import org.aksw.rdfunit.io.RDFReaderFactory;
+import org.aksw.rdfunit.io.reader.RdfReader;
+import org.apache.jena.ontology.OntModel;
+import org.apache.jena.ontology.OntModelSpec;
+import org.apache.jena.rdf.model.ModelFactory;
 
 import java.util.Collection;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Defines a source based on an RDF Dump
@@ -19,53 +19,60 @@ import java.util.Collection;
  *
  * @author Dimitris Kontokostas
  * @since 2/6/14 9:32 AM
+
  */
-public class DumpTestSource extends Source {
+public class DumpTestSource extends AbstractTestSource implements TestSource {
 
-    private final RDFReader dumpReader;
+    private final RdfReader dumpReader;
 
-    public DumpTestSource(String prefix, String uri) {
-        this(prefix, uri, RDFReaderFactory.createDereferenceReader(uri), null);
+    private final OntModel dumpModel;
+
+    DumpTestSource(SourceConfig sourceConfig, QueryingConfig queryingConfig, Collection<SchemaSource> referenceSchemata, RdfReader dumpReader, OntModel model) {
+        super(sourceConfig, queryingConfig, referenceSchemata);
+        this.dumpReader = checkNotNull(dumpReader);
+        dumpModel = checkNotNull(model);
     }
 
-    public DumpTestSource(String prefix, String uri, String location) {
-        this(prefix, uri, location, null);
+    DumpTestSource(SourceConfig sourceConfig, QueryingConfig queryingConfig, Collection<SchemaSource> referenceSchemata, RdfReader dumpReader) {
+        this(sourceConfig, queryingConfig, referenceSchemata, dumpReader, ModelFactory.createOntologyModel( OntModelSpec.OWL_DL_MEM, ModelFactory.createDefaultModel()));  //OntModelSpec.RDFS_MEM_RDFS_INF
     }
 
-    public DumpTestSource(String prefix, String uri, String location, Collection<SchemaSource> schemata) {
-        this(prefix, uri, RDFReaderFactory.createDereferenceReader(location), schemata);
+    DumpTestSource(DumpTestSource dumpTestSource, Collection<SchemaSource> referenceSchemata) {
+        this(dumpTestSource.sourceConfig, dumpTestSource.queryingConfig, referenceSchemata, dumpTestSource.dumpReader, dumpTestSource.dumpModel);
     }
 
-    public DumpTestSource(String prefix, String uri, RDFReader dumpReader, Collection<SchemaSource> schemata) {
-        super(prefix, uri);
-        this.dumpReader = dumpReader;
-        if (schemata != null) {
-            addReferencesSchemata(schemata);
-        }
-    }
-
-    @Override
-    public TestAppliesTo getSourceType() {
-        return TestAppliesTo.Dataset;
-    }
 
     @Override
     protected QueryExecutionFactory initQueryFactory() {
-        OntModel model = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM, ModelFactory.createDefaultModel());
+
+        // When we load the referenced schemata we do rdfs reasoning to avoid false errors
+        // Many ontologies skip some domain / range statements and this way we add them
+        OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.RDFS_MEM_RDFS_INF, ModelFactory.createDefaultModel());
         try {
-            // Read & load the URI
-            dumpReader.read(model);
-            //Load all the related ontologies as well (for more consistent querying
-            for (Source src : getReferencesSchemata()) {
-                QueryExecutionFactory qef = src.getExecutionFactory();
-                if (qef instanceof QueryExecutionFactoryModel) {
-                    model.add(((QueryExecutionFactoryModel) qef).getModel());
-                }
+
+            // load the data only when the model is empty in case it is initialized with the "copy constructor"
+            // This sppeds up the process on very big in-memory datasets
+            if (dumpModel.isEmpty()) {
+                // load the data only when the model is empty in case it is initialized with the "copy constructor"
+                dumpReader.read(dumpModel);
             }
+
+            //if (dumpModel.isEmpty()) {
+            //    throw new IllegalArgumentException("Dump is empty");
+            //}
+            //Load all the related ontologies as well (for more consistent querying
+            for (SchemaSource src : getReferencesSchemata()) {
+                ontModel.add(src.getModel());
+            }
+            // Here we add the ontologies in the dump mode
+            // Note that the ontologies have reasoning enabled but not the dump source
+            dumpModel.add(ontModel);
         } catch (Exception e) {
             log.error("Cannot read dump URI: " + getUri() + " Reason: " + e.getMessage());
-            throw new IllegalArgumentException("Dump source (" + getUri() + ") does not exists", e);
+            throw new IllegalArgumentException("Cannot read dump URI: " + getUri() + " Reason: " + e.getMessage(), e);
         }
-        return new QueryExecutionFactoryModel(model);
+        return masqueradeQEF(new QueryExecutionFactoryModel(dumpModel), this);
     }
+
+
 }

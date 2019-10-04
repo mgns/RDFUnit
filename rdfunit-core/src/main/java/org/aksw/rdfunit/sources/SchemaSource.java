@@ -1,38 +1,53 @@
 package org.aksw.rdfunit.sources;
 
-import com.hp.hpl.jena.ontology.OntModel;
-import com.hp.hpl.jena.ontology.OntModelSpec;
-import com.hp.hpl.jena.rdf.model.ModelFactory;
-import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
-import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 import org.aksw.rdfunit.enums.TestAppliesTo;
-import org.aksw.rdfunit.exceptions.TripleReaderException;
-import org.aksw.rdfunit.io.RDFReader;
+import org.aksw.rdfunit.io.reader.RdfReader;
+import org.aksw.rdfunit.io.reader.RdfReaderException;
+import org.apache.jena.ontology.OntModel;
+import org.apache.jena.ontology.OntModelSpec;
+import org.apache.jena.rdf.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Dimitris Kontokostas
- *         Description
  * @since 9/16/13 1:51 PM
  */
-public class SchemaSource extends Source {
+@ToString
+@EqualsAndHashCode(exclude={"model", "schemaReader"})
+public class SchemaSource implements Source {
+    /** Constant <code>log</code> */
+    protected static final Logger log = LoggerFactory.getLogger(SchemaSource.class);
 
-    protected final String schema;
-    protected final RDFReader schemaReader;
+    protected final SourceConfig sourceConfig;
+    @Getter private final String schema;
 
-    public SchemaSource(String prefix, String uri, RDFReader schemaReader) {
-        this(prefix, uri, uri, schemaReader);
+    protected final RdfReader schemaReader;
+    @Getter(lazy=true) private final Model model = initModel() ;
+
+    SchemaSource(SourceConfig sourceConfig, RdfReader schemaReader) {
+        this(sourceConfig, sourceConfig.getUri(), schemaReader);
     }
 
-    public SchemaSource(String prefix, String uri, String schema, RDFReader schemaReader) {
-        super(prefix, uri);
+    SchemaSource(SourceConfig sourceConfig, String schema, RdfReader schemaReader) {
+        this.sourceConfig = sourceConfig;
         this.schema = schema;
         this.schemaReader = schemaReader;
     }
 
-    public SchemaSource(SchemaSource source) {
-        super(source);
-        this.schema = source.getSchema();
-        this.schemaReader = source.schemaReader;
+    public SchemaSource(SchemaSource source) {this(source.sourceConfig, source.schema, source.schemaReader);}
+
+    @Override
+    public String getPrefix() {
+        return sourceConfig.getPrefix();
+    }
+
+    @Override
+    public String getUri() {
+        return sourceConfig.getUri();
     }
 
     @Override
@@ -40,24 +55,20 @@ public class SchemaSource extends Source {
         return TestAppliesTo.Schema;
     }
 
-    @Override
-    protected QueryExecutionFactory initQueryFactory() {
-        OntModel model = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM, ModelFactory.createDefaultModel());
+    public SourceConfig getSourceConfig() {
+        return sourceConfig;
+    }
+
+    /**
+     * lazy loaded via lombok
+     */
+    private Model initModel() {
+        OntModel m = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM, ModelFactory.createDefaultModel());
         try {
-            schemaReader.read(model);
-        } catch (TripleReaderException e) {
-            log.error("Cannot load ontology: " + getSchema() + " Reason: " + e.getMessage(), e);
+            schemaReader.read(m);
+        } catch (RdfReaderException e) {
+            log.error("Cannot load ontology: {} ", getSchema(), e);
         }
-        return new QueryExecutionFactoryModel(model);
+        return m;
     }
-
-    public String getSchema() {
-        return schema;
-    }
-
-    @Override
-    public String toString() {
-        return getPrefix() + " (" + getSchema() + ")";
-    }
-
 }

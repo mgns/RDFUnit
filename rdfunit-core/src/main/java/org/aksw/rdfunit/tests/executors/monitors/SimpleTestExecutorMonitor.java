@@ -1,112 +1,100 @@
 package org.aksw.rdfunit.tests.executors.monitors;
 
-import com.hp.hpl.jena.datatypes.xsd.XSDDatatype;
-import com.hp.hpl.jena.rdf.model.Model;
-import com.hp.hpl.jena.rdf.model.ModelFactory;
-import com.hp.hpl.jena.rdf.model.Resource;
-import com.hp.hpl.jena.rdf.model.ResourceFactory;
-import com.hp.hpl.jena.shared.uuid.JenaUUID;
-import com.hp.hpl.jena.vocabulary.RDF;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.aksw.rdfunit.enums.TestCaseExecutionType;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
-import org.aksw.rdfunit.services.PrefixNSService;
-import org.aksw.rdfunit.sources.Source;
-import org.aksw.rdfunit.tests.TestCase;
-import org.aksw.rdfunit.tests.TestSuite;
-import org.aksw.rdfunit.tests.results.AggregatedTestCaseResult;
-import org.aksw.rdfunit.tests.results.DatasetOverviewResults;
-import org.aksw.rdfunit.tests.results.StatusTestCaseResult;
-import org.aksw.rdfunit.tests.results.TestCaseResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.aksw.rdfunit.model.impl.results.DatasetOverviewResults;
+import org.aksw.rdfunit.model.impl.results.TestExecutionImpl;
+import org.aksw.rdfunit.model.interfaces.TestCase;
+import org.aksw.rdfunit.model.interfaces.TestSuite;
+import org.aksw.rdfunit.model.interfaces.results.AggregatedTestCaseResult;
+import org.aksw.rdfunit.model.interfaces.results.StatusTestCaseResult;
+import org.aksw.rdfunit.model.interfaces.results.TestCaseResult;
+import org.aksw.rdfunit.model.interfaces.results.TestExecution;
+import org.aksw.rdfunit.sources.SchemaSource;
+import org.aksw.rdfunit.sources.TestSource;
+import org.aksw.rdfunit.utils.JenaUtils;
+import org.aksw.rdfunit.utils.RDFUnitUtils;
+import org.apache.jena.rdf.model.ResourceFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * A simple test executor monitor. This is used in the CLI version
  *
  * @author Dimitris Kontokostas
  * @since 5/6/14 2:49 PM
+
  */
+@Slf4j
 public class SimpleTestExecutorMonitor implements TestExecutorMonitor {
 
-    private static final Logger log = LoggerFactory.getLogger(SimpleTestExecutorMonitor.class);
     private final boolean loggingEnabled;
+    @Getter private TestExecution testExecution;
 
     private final DatasetOverviewResults overviewResults = new DatasetOverviewResults();
 
-    final private Model model;
-    final private String executionUUID;
+    private final String executionUUID;
 
-    private Source testedDataset;
+    private TestSource testedDataset;
     private TestSuite testSuite;
+    private TestCaseExecutionType executionType;
+
+    private String userID = "http://localhost/";
 
     private long counter = 0;
 
-    /**
-     * Instantiates a new Simple test executor monitor.
-     */
+    private Collection<TestCaseResult> results = new ArrayList<>();
+
+
     public SimpleTestExecutorMonitor() {
-        this(ModelFactory.createDefaultModel(), true);
+        this(true);
     }
 
-    /**
-     * Instantiates a new Simple test executor monitor.
-     *
-     * @param loggingEnabled have logging enabled / disabled
-     */
     public SimpleTestExecutorMonitor(boolean loggingEnabled) {
-        this(ModelFactory.createDefaultModel(), loggingEnabled);
-    }
-
-    /**
-     * Instantiates a new Simple test executor monitor using an external Model.
-     *
-     * @param model the external model
-     */
-    public SimpleTestExecutorMonitor(Model model) {
-        this(model, true);
-    }
-
-    /**
-     * Instantiates a new Simple test executor monitor.
-     *
-     * @param model the model
-     * @param loggingEnabled the logging enabled
-     */
-    public SimpleTestExecutorMonitor(Model model, boolean loggingEnabled) {
-        this.model = model;
         this.loggingEnabled = loggingEnabled;
-        PrefixNSService.setNSPrefixesInModel(model);
-        executionUUID = JenaUUID.generate().asString();
+        executionUUID = JenaUtils.getUniqueIri();
     }
+
 
 
     @Override
-    public void testingStarted(Source dataset, TestSuite testSuite) {
-        testedDataset = dataset;
+    public void testingStarted(TestSource testSource, TestSuite testSuite) {
+        testedDataset = testSource;
         this.testSuite = testSuite;
 
         // init counters
         counter = 0;
         overviewResults.reset();
+        results.clear();
 
         // Set testing start time
         overviewResults.setStartTime();
         overviewResults.setTotalTests(testSuite.size());
 
         if (loggingEnabled) {
-            log.info("Testing " + testedDataset.getUri());
+            log.info("Testing {}", testedDataset.getUri());
         }
     }
+
 
     @Override
     public void singleTestStarted(TestCase test) {
         counter++;
     }
 
+
     @Override
     public void singleTestExecuted(TestCase test, TestCaseResultStatus status, Collection<TestCaseResult> results) {
+
+        this.results.addAll(results);
 
         if (status.equals(TestCaseResultStatus.Error)) {
             overviewResults.increaseErrorTests();
@@ -115,14 +103,10 @@ public class SimpleTestExecutorMonitor implements TestExecutorMonitor {
             overviewResults.increaseTimeoutTests();
         }
         if (status.equals(TestCaseResultStatus.Success)) {
-            overviewResults.increaseSuccessfullTests();
+            overviewResults.increaseSuccessfulTests();
         }
         if (status.equals(TestCaseResultStatus.Fail)) {
             overviewResults.increaseFailedTests();
-        }
-
-        for (TestCaseResult result : results) {
-            result.serialize(getModel(), executionUUID);
         }
 
         // in case we have 1 result but is not status
@@ -131,14 +115,14 @@ public class SimpleTestExecutorMonitor implements TestExecutorMonitor {
         if (results.size() == 1) {
 
             //Get item
-            TestCaseResult result = RDFUnitUtils.getFirstItemInCollection(results);
-            assert (result != null);
+            TestCaseResult result = RDFUnitUtils.getFirstItemInCollection(results).get();
+            checkNotNull(result);
 
             if (result instanceof StatusTestCaseResult) {
                 statusResult = true;
 
                 if (loggingEnabled) {
-                    log.info("Test " + counter + "/" + overviewResults.getTotalTests() + " returned " + result.toString());
+                    log.info("Test " + counter + "/" + overviewResults.getTotalTests() + " returned " + result);
                 }
 
 
@@ -165,35 +149,29 @@ public class SimpleTestExecutorMonitor implements TestExecutorMonitor {
         }
     }
 
+
     @Override
     public void testingFinished() {
         // Set testing end time
         overviewResults.setEndTime();
 
-        Resource testSuiteResource = testSuite.serialize(getModel());
+        List<String> schemata = testedDataset.getReferencesSchemata().stream()
+                .map(SchemaSource::getUri).collect(Collectors.toList());
 
-        getModel().createResource(executionUUID)
-                .addProperty(RDF.type, getModel().createResource(PrefixNSService.getURIFromAbbrev("rut:TestExecution")))
-                .addProperty(RDF.type, getModel().createResource(PrefixNSService.getURIFromAbbrev("prov:Activity")))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("prov:used")), testSuiteResource)
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("prov:startedAtTime")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getStartTime(), XSDDatatype.XSDdateTime))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("prov:endedAtTime")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getEndTime(), XSDDatatype.XSDdateTime))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:source")),
-                        getModel().createResource(testedDataset.getUri()))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:testsRun")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getTotalTests(), XSDDatatype.XSDnonNegativeInteger))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:testsSuceedded")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getSuccessfullTests(), XSDDatatype.XSDnonNegativeInteger))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:testsFailed")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getFailedTests(), XSDDatatype.XSDnonNegativeInteger))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:testsTimeout")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getTimeoutTests(), XSDDatatype.XSDnonNegativeInteger))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:testsError")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getErrorTests(), XSDDatatype.XSDnonNegativeInteger))
-                .addProperty(ResourceFactory.createProperty(PrefixNSService.getURIFromAbbrev("rut:totalIndividualErrors")),
-                        ResourceFactory.createTypedLiteral("" + overviewResults.getIndividualErrors(), XSDDatatype.XSDnonNegativeInteger));
+        Set<String> testCaseUris = testSuite.getTestCases().stream()
+                .map(TestCase::getTestURI).collect(Collectors.toSet());
+
+        testExecution = new TestExecutionImpl.Builder()
+                .setElement(ResourceFactory.createResource(executionUUID))
+                .setDatasetOverviewResults(overviewResults)
+                .setStartedByAgent(userID)
+                .setTestCaseExecutionType(executionType)
+                .setTestedDatasetUri(testedDataset.getUri())
+                //.setTestSuite(testSuite)
+                .setSchemata(schemata)
+                .setTestCaseUris(testCaseUris)
+                .setResults(results)
+                .build();
 
         if (loggingEnabled) {
             log.info("Tests run: " + overviewResults.getTotalTests() +
@@ -205,20 +183,19 @@ public class SimpleTestExecutorMonitor implements TestExecutorMonitor {
     }
 
     /**
-     * Gets model that contains the results
-     *
-     * @return the model
-     */
-    public Model getModel() {
-        return model;
-    }
-
-    /**
      * Gets overview results.
      *
      * @return the overview results
      */
     public DatasetOverviewResults getOverviewResults() {
         return overviewResults;
+    }
+
+    public void setUserID(String userID) {
+        this.userID = userID;
+    }
+
+    public void setExecutionType(TestCaseExecutionType executionType) {
+        this.executionType = executionType;
     }
 }

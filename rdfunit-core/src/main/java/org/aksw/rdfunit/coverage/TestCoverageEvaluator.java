@@ -1,24 +1,27 @@
 package org.aksw.rdfunit.coverage;
 
-import com.hp.hpl.jena.query.*;
+import lombok.extern.slf4j.Slf4j;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.rdfunit.services.PrefixNSService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.aksw.rdfunit.statistics.DatasetStatisticsClassesCount;
+import org.aksw.rdfunit.statistics.DatasetStatisticsPropertiesCount;
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryFactory;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
 
 /**
+ * Calculates test coverage based on www paper
+ *
  * @author Dimitris Kontokostas
- *         Calculates test coverage based on www paper
  * @since 10/8/13 9:06 PM
  */
+@Slf4j
 public class TestCoverageEvaluator {
-    private static final Logger log = LoggerFactory.getLogger(TestCoverageEvaluator.class);
-
 
     private final Collection<String> fDomPatterns = Arrays.asList("RDFSDOMAIN", "OWLDISJP",
             "TYPRODEP", "OWLSYMMETRICPROP", "OWLASYMMETRICPROP",
@@ -40,7 +43,7 @@ public class TestCoverageEvaluator {
             "   VALUES ( ?pattern )  { %%PATTERNS%%} }";
 
     private String generateInClause(Collection<String> patterns) {
-        StringBuilder inClause = new StringBuilder("");
+        StringBuilder inClause = new StringBuilder();
         //int count = 0;
         for (String s : patterns) {
             //if (count++ != 0) {
@@ -54,79 +57,58 @@ public class TestCoverageEvaluator {
         return inClause.toString();
     }
 
-    public void calculateCoverage(QueryExecutionFactory model, String propertiesFile, String classFile) throws IOException {
+    public void calculateCoverage(QueryExecutionFactory testSuiteQEF, QueryExecutionFactory inputSource) {
 
+        Map<String, Long> properties = new DatasetStatisticsPropertiesCount().getStatisticsMap(inputSource);
+        long propertiesTotal = properties.size();
 
-        Map<String, Long> properties = new HashMap<>();
-        BufferedReader br = new BufferedReader(new FileReader(propertiesFile));
-        String line;
-        long propertiesTotal = 0;
-        while ((line = br.readLine()) != null) {
-            // process the line.
-            String[] ar = line.split(" ");
-            long count = Long.parseLong(ar[0].trim());
-            String ref = ar[1].trim();
-            propertiesTotal += count;
-            properties.put(ref, count);
+        Map<String, Long> classes = new DatasetStatisticsClassesCount().getStatisticsMap(inputSource);
+        long classesTotal = classes.size();
 
-        }
-        br.close();
-
-
-        Map<String, Long> classes = new HashMap<>();
-        br = new BufferedReader(new FileReader(classFile));
-
-        long classesTotal = 0;
-        while ((line = br.readLine()) != null) {
-            // process the line.
-            String[] ar = line.split(" ");
-            long count = Long.parseLong(ar[0].trim());
-            String ref = ar[1].trim();
-            classesTotal += count;
-            classes.put(ref, count);
-
-        }
-        br.close();
-
-        calculateCoverage(model, properties, propertiesTotal, classes, classesTotal);
-
-
+        calculateCoverage(testSuiteQEF, properties, propertiesTotal, classes, classesTotal);
     }
 
-    public void calculateCoverage(QueryExecutionFactory model, Map<String, Long> propertyCount, long totalProperties, Map<String, Long> classCount, long totalClasses) {
+    private void calculateCoverage(QueryExecutionFactory model, Map<String, Long> propertyCount, long totalProperties, Map<String, Long> classCount, long totalClasses) {
 
-        String sparqlQuery = "";
         Collection<String> references;
 
-        // Fdomain Coverage metric
-        references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fDomPatterns)));
-        double fDom = getCoverage(references, propertyCount, totalProperties);
-        log.info("Fdom Coverage: " + fDom);
+        if (totalProperties > 0) {
+            // Fdomain Coverage metric
+            references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fDomPatterns)));
+            double fDom = getCoverage(references, propertyCount, totalProperties);
+            log.info("Fdom Coverage: {}", fDom);
 
-        // Frange Coverage metric
-        references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fRangPatterns)));
-        double fRang = getCoverage(references, propertyCount, totalProperties);
-        log.info("fRang Coverage: " + fRang);
+            // Frange Coverage metric
+            references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fRangPatterns)));
+            double fRang = getCoverage(references, propertyCount, totalProperties);
+            log.info("fRang Coverage: {}", fRang);
 
-        // Fdepend Coverage metric
-        references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fDepPatterns)));
-        double fDep = getCoverage(references, propertyCount, totalProperties);
-        log.info("fDep Coverage: " + fDep);
+            // Fdepend Coverage metric
+            references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fDepPatterns)));
+            double fDep = getCoverage(references, propertyCount, totalProperties);
+            log.info("fDep Coverage: {}", fDep);
 
-        // FCard Coverage metric
-        references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fCardPatterns)));
-        double fCard = getCoverage(references, propertyCount, totalProperties);
-        log.info("fCard Coverage: " + fRang);
+            // FCard Coverage metric
+            references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fCardPatterns)));
+            double fCard = getCoverage(references, propertyCount, totalProperties);
+            log.info("fCard Coverage: {}", fCard);
+        } else {
+            log.warn("No properties found in Source (probably source is empty)");
+        }
 
-        // Fmem Coverage metric
-        references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fMemPatterns)));
-        double fMem = getCoverage(references, classCount, totalClasses);
-        log.info("fMem Coverage: " + fMem);
+        if (totalClasses > 0) {
+            // Fmem Coverage metric
+            references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fMemPatterns)));
+            double fMem = getCoverage(references, classCount, totalClasses);
+            log.info("fMem Coverage: {}", fMem);
 
-        // FCdep Coverage metric
-        references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fCDepPatterns)));
-        double fCDep = getCoverage(references, classCount, totalClasses);
-        log.info("fCDep Coverage: " + fCDep);
+            // FCdep Coverage metric
+            references = getReferenceSet(model, sparql.replace("%%PATTERNS%%", generateInClause(fCDepPatterns)));
+            double fCDep = getCoverage(references, classCount, totalClasses);
+            log.info("fCDep Coverage: {}", fCDep);
+        } else {
+            log.warn("No Class usage found in Source");
+        }
     }
 
     private double getCoverage(Collection<String> references, Map<String, Long> referencesCount, long totalReferences) {
@@ -146,16 +128,12 @@ public class TestCoverageEvaluator {
 
         Collection<String> references = new ArrayList<>();
         Query q = QueryFactory.create(query);
-        QueryExecution qe = model.createQueryExecution(q);
-        ResultSet rs = qe.execSelect();
-
-        while (rs.hasNext()) {
-            QuerySolution row = rs.next();
-
-            references.add("<" + row.get("reference").toString() + ">");
-
+        try (QueryExecution qe = model.createQueryExecution(q))
+        {
+            qe.execSelect().forEachRemaining(
+                    row -> references.add("<" + row.get("reference").toString() + ">")
+            );
         }
-        qe.close();
 
         return references;
 

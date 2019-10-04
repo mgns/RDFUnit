@@ -9,7 +9,6 @@
 #
 
 MAIN_CLS="org.aksw.rdfunit.validate.cli.ValidateCLI"
-MVN="mvn"
 
 # TODO use the jar for faster execution
 #if [ -s bin/rdfunit.jar ]
@@ -18,6 +17,14 @@ MVN="mvn"
 #          cp /tmp/docu.html "$doc"".html"
 #fi
 
-cd rdfunit-validate/
-$MVN compile exec:java -q -Dexec.mainClass="$MAIN_CLS" -Dexec.args="$*"
-cd - > /dev/null
+if [ ! -d "rdfunit-validate/target" ]; then
+  echo "First run, compiling code..."
+  mvn -pl rdfunit-validate -am clean install \
+  -Dmaven.test.skip=true \
+  -Dmaven.javadoc.skip=true \
+  -Dgpg.skip=true \
+  -Dsource.skip=true
+  echo "Compiling finished..."
+fi
+
+mvn -pl rdfunit-validate exec:java -q -Dexec.mainClass="$MAIN_CLS" -Dexec.args="$*"

@@ -2,8 +2,9 @@ package org.aksw.rdfunit.exceptions;
 
 /**
  * @author Dimitris Kontokostas
- *         Description
+
  * @since 6/14/14 9:30 AM
+
  */
 public class UndefinedSerializationException extends Exception {
     private final String serialization;

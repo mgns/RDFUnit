@@ -1,71 +1,97 @@
-RDFUnit
+RDFUnit - RDF Unit Testing Suite
 ==========
 
-**Note**:We are porting this documentation in the [github wiki](https://github.com/AKSW/RDFUnit/wiki) and some parts are more up-to-date there
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.aksw.rdfunit/rdfunit-parent/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.aksw.rdfunit/rdfunit-parent)
+[![Build Status](https://travis-ci.org/AKSW/RDFUnit.svg?branch=master)](https://travis-ci.org/AKSW/RDFUnit)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/2650/badge.svg?flat=1)](https://scan.coverity.com/projects/2650)
+[![Coverage Status](https://coveralls.io/repos/AKSW/RDFUnit/badge.svg?branch=master&service=github)](https://coveralls.io/github/AKSW/RDFUnit?branch=master)
+[![Codacy Badge](https://api.codacy.com/project/badge/grade/02907c27b76141709e5a6e9682fc836c)](https://www.codacy.com/app/jimkont/RDFUnit)
+[![codebeat badge](https://codebeat.co/badges/fc781acc-0a9f-4796-9d33-28d1ffb3b019)](https://codebeat.co/projects/github-com-aksw-rdfunit)
+[![Project Stats](https://www.openhub.net/p/RDFUnit/widgets/project_thin_badge.gif)](https://www.ohloh.net/p/RDFUnit)
 
-This repository contains the *RDFUnit* -- a tool for test-driven quality evaluation of Linked Data quality.
-Further background information about the underlying *Test Driven Data Quality Methodology* can be looked up in the following publications: [methodology (WWW2014)](http://svn.aksw.org/papers/2014/WWW_Databugger/public.pdf), [demo paper (WWW2014)](http://svn.aksw.org/papers/2014/WWW_Databugger_demo/public.pdf) and [ontology definition (ESWC2014)](http://svn.aksw.org/papers/2014/ESWC_NLP_Cleansing/public.pdf).
-The results of the methodology paper are available [here](https://github.com/AKSW/RDFUnit/tree/master/data/archive/WWW_2014) .
-This methodology defines a set of data quality test patterns which are SPARQL query templates expressing certain common error conditions.
-After having instantiated such patterns for a concrete dataset possible errors of the corresponding kind can be detected. An example would be the following pattern:
 
+
+**Homepage**: http://rdfunit.aksw.org <br/>
+**Documentation**: https://github.com/AKSW/RDFUnit/wiki  <br/>
+**Slack #rdfunit**: https://dbpedia-slack.herokuapp.com/ <br/>
+**Mailing list**: https://groups.google.com/d/forum/rdfunit (rdfunit [at] googlegroups.com)  <br/>
+**Presentations**: http://www.slideshare.net/jimkont  <br/>
+**Brief Overview**: https://github.com/AKSW/RDFUnit/wiki/Overview
+
+
+RDFUnit is implemented on top of the [Test-Driven Data Validation Ontology](http://rdfunit.aksw.org/ns/core#) and designed to read and produce RDF that complies to that ontology only.
+The main components that RDFUnit reads are
+[TestCases (manual & automatic), TestSuites](https://github.com/AKSW/RDFUnit/wiki/TestCases),
+[Patterns & TestAutoGenerators](https://github.com/AKSW/RDFUnit/wiki/Patterns-Generators).
+RDFUnit also strictly defines the results of a TestSuite execution along with [different levels of result granularity](https://github.com/AKSW/RDFUnit/wiki/Results).
+
+### Contents
+ * [Basic Usage](#basic-usage)
+ * [Using Docker](#using-docker)
+ * [Supported Schemas](#supported-schemas)
+ * [Acknowledgements](#acknowledgements)
+
+
+### Basic usage
+
+See [RDFUnit from Command Line](https://github.com/AKSW/RDFUnit/wiki/CLI) or `bin/rdfunit -h` for (a lot) more options but the simplest setting is as follows:
+
+```console
+$ bin/rdfunit -d <local-or-remote-location-URI>
 ```
-SELECT ?s WHERE {
-            ?s %%P1%% ?v1 .
-            ?s %%P2%% ?v2 .
-            FILTER ( ?v1 %%OP%% ?v2 ) }
+
+What RDFUnit will do is:
+
+1. Get statistics about all properties & classes in the dataset
+1. Get the namespaces out of them and try to dereference all that exist in [LOV](http://lov.okfn.org)
+1. Run our [Test Generators](https://github.com/AKSW/RDFUnit/wiki/Patterns-Generators) on the schemas and generate RDFUnit Test cases
+1. Run the RDFUnit test cases on the dataset
+1. You get a results report in html (by default) but you can request it in [RDF](http://rdfunit.aksw.org/ns/core#) or even multiple serializations with e.g.  `-o html,turtle,jsonld`
+  * The results are by default aggregated with counts, you can request different levels of result details using `-r {status|aggregate|shacl|shacllite}`. See [here](https://github.com/AKSW/RDFUnit/wiki/Results) for more details.
+
+You can also run:
+```console
+$ bin/rdfunit -d <dataset-uri> -s <schema1,schema2,schema3,...>
 ```
-This pattern expresses the error condition where the values of two properties (`%%P1%%`, `%%P2`) are not in a specific ordering with respect to an operator (`%%OP%%` in { <, <=, >, >=, =, != }). A possible instantiation for this pattern, applicable to the [DBpedia](http://dbpedia.org) would be
+
+Where you define your own schemas and we pick up from step 3. You can also use prefixes directly (e.g. `-s foaf,skos`) we can get everything that is defined in [LOV](http://lov.okfn.org).
+
+### Using Docker
+
+A Dockerfile is provided to create a Docker image of the CLI of RDFUnit.
+
+To create the Docker image:
+
+```console
+$ docker build -t rdfunit .
 ```
-SELECT ?s WHERE {
-            ?s dbo:birthDate ?v1 .
-            ?s dbo:deathDate ?v2 .
-            FILTER ( ?v1 > ?v2 ) }
+
+It is meant to execute a rdfunit command and then shutdown the container. If the output of rdfunit on stdout is not enough or you want to include files in the container, a directory could be mounted via Docker in order to create the output/result there or include files.
+
+Here an example of usage:
+
+```console
+$ docker run --rm -it rdfunit -d https://awesome.url/file -r aggregate
 ```
-referring to the case where an individual died before it was born.
 
-The RDFUnit tool provides a [vocabulary](http://rdfunit.aksw.org/ns#) to define such pattern instantiations called *data quality test cases*.
-Apart from manual instantiations some of the test patterns can also be instantiated automatically.
-These test cases are then specific to a given schema and can be re-used.
-For now we support the following axioms: 
-`rdfs:domain`,
-`rdfs:range`,
-`owl:cardinality`,
-`owl:minCardinality`,
-`owl:maxCardinality`,
-`owl:functionalProperty`,
-`owl:disjointClass`,
-`owl:propertyDisjointWith`,
-`owl:complementOf`,
-`owl:InverseFunctionalProperty`,
-`owl:AsymmetricProperty` and `owl:IrreflexiveProperty`.
-and we plan to extend them over time.
+This creates a temporary Docker container which runs the command, prints the results on stdout and stops plus removes itself. For further usage of CLI visit https://github.com/AKSW/RDFUnit/wiki/CLI.
 
-*Please note that this work is still in beta*
+### Supported Schemas
 
-### Usage
+RDFUnit supports the following types of schemas
 
-To run a data quality assessment of a certain SPARQL endpoint the following steps have to be done:
+1. **OWL** (using CWA): We pick the most commons OWL axioms as well as schema.org. (see [[1]](https://github.com/AKSW/RDFUnit/labels/OWL),[[2]](https://github.com/AKSW/RDFUnit/issues/20) for details
+1. **SHACL**: Full SHACL is almost available except from [a few SHACL constructs](https://github.com/AKSW/RDFUnit/issues/62). Whatever constructs we support can also run directly on SPARQL Endpoints
+1. IBM **Resource Shapes**: The progress is tracked [here](https://github.com/AKSW/RDFUnit/issues/23) bus as soon as SHACL becomes stable we will drop support for RS
+1. **DSP** (Dublin Core Set Profiles): The progress is tracked [here](https://github.com/AKSW/RDFUnit/issues/22) bus as soon as SHACL becomes stable we will drop support for RS
 
-1. (automatic) RDFUnit automatically instantiates test cases for the given schemas used in the evaluation
-2. (optional improvement) Get/Create manual data quality test cases for the used schemas
-3. (optional improvement) Get/create manual data quality test cases for the evaluated dataset
-4. (optional improvement) Enrich the schema of the considered dataset (This is just in case a light-weight ontology/schema is used that defines only a few schema/ontology constraints that could be used for pattern instantiation.
-   The enrichment process will try to infer constraints for the dataset based on the actual data using the [DL-Learner](http://dl-learner.org/Projects/DLLearner) tool.)
-5. Run the actual assessment based on the test cases created in the previous step
+Note that you can mix all of these constraints together and RDFUnit will validate the dataset against all of them.
 
+### Acknowledgements
 
-See the wiki for execution information
+The first version  of RDFUnit (formely known as Databugger) was developed by AKSW as part of the PhD thesis of Dimitris Kontokostas. 
+A lot of additional work for improvement, requirements & refactoring was performed through the [EU funded project ALIGNED](http://aligned-project.eu). Through the project, a lot of project partners provided feedback and contributed code like e.g.  Wolters Kluwers Germany and Semantic Web Company that are also users of RDFUnit.
 
+There are also many [code contributors](https://github.com/AKSW/RDFUnit/graphs/contributors) as well as people submitted bug reports or provided constructive feedback.
 
-### Create manual data quality test cases
-
-We plan to provide an interface to ease the manual pattern instantiation.
-At the moment you can store your manually generated queries in the respective `Manual` subfolder.
-
-### Get/create data quality test cases for schemas
-
-RDFUnit already resolves all schema prefixes with the LOV dataset and can automatically download and generate tests for all 361 LOV vocabularies.
-If your vocabulary you want to use is not there you can place it in the RDFUnitUtils.fillSchemaService() accordingly.
-
-
+In addition, RDFUnit used [Java profiler (JProfiler)](http://www.ej-technologies.com/products/jprofiler/overview.html) for optimizations

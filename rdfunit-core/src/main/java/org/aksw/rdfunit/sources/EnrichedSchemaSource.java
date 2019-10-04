@@ -1,23 +1,33 @@
 package org.aksw.rdfunit.sources;
 
 import org.aksw.rdfunit.enums.TestAppliesTo;
-import org.aksw.rdfunit.io.RDFReader;
+import org.aksw.rdfunit.io.reader.RdfReader;
 
 /**
  * @author Dimitris Kontokostas
- *         Description
  * @since 9/16/13 1:53 PM
  */
-public class EnrichedSchemaSource extends SchemaSource {
+public class EnrichedSchemaSource extends SchemaSource implements Source{
 
-    public EnrichedSchemaSource(String prefix, String uri, RDFReader schemaReader) {
-        super(prefix, uri, schemaReader);
+
+    EnrichedSchemaSource(SourceConfig sourceConfig, RdfReader schemaReader) {
+        super(sourceConfig, schemaReader);
     }
+
+    EnrichedSchemaSource(SourceConfig sourceConfig, String schema, RdfReader schemaReader) {
+        super(sourceConfig, schema, schemaReader);
+    }
+
+    EnrichedSchemaSource(SchemaSource source) {
+        super(source);
+    }
+
 
     @Override
     public TestAppliesTo getSourceType() {
         return TestAppliesTo.EnrichedSchema;
     }
+
 
     @Override
     public String getPrefix() {

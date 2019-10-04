@@ -1,18 +1,17 @@
 package org.aksw.rdfunit.tests.executors;
 
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
 import org.aksw.rdfunit.exceptions.TestCaseExecutionException;
-import org.aksw.rdfunit.sources.Source;
-import org.aksw.rdfunit.tests.QueryGenerationFactory;
-import org.aksw.rdfunit.tests.TestCase;
-import org.aksw.rdfunit.tests.TestSuite;
+import org.aksw.rdfunit.model.interfaces.TestCase;
+import org.aksw.rdfunit.model.interfaces.TestSuite;
+import org.aksw.rdfunit.model.interfaces.results.ShaclLiteTestCaseResult;
+import org.aksw.rdfunit.model.interfaces.results.StatusTestCaseResult;
+import org.aksw.rdfunit.model.interfaces.results.TestCaseResult;
+import org.aksw.rdfunit.sources.TestSource;
 import org.aksw.rdfunit.tests.executors.monitors.TestExecutorMonitor;
-import org.aksw.rdfunit.tests.results.RLOGTestCaseResult;
-import org.aksw.rdfunit.tests.results.StatusTestCaseResult;
-import org.aksw.rdfunit.tests.results.TestCaseResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.aksw.rdfunit.tests.query_generation.QueryGenerationFactory;
+import org.aksw.rdfunit.utils.RDFUnitUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,9 +21,10 @@ import java.util.Collection;
  *
  * @author Dimitris Kontokostas
  * @since 9 /30/13 11:11 AM
+
  */
+@Slf4j
 public abstract class TestExecutor {
-    private static final Logger log = LoggerFactory.getLogger(TestExecutor.class);
     /**
      * Used in {@code cancel()} to stop the current execution
      */
@@ -42,6 +42,8 @@ public abstract class TestExecutor {
 
     /**
      * Instantiates a new Test executor.
+     *
+     * @param queryGenerationFactory a {@link org.aksw.rdfunit.tests.query_generation.QueryGenerationFactory} object.
      */
     public TestExecutor(QueryGenerationFactory queryGenerationFactory) {
         this.queryGenerationFactory = queryGenerationFactory;
@@ -57,23 +59,22 @@ public abstract class TestExecutor {
     /**
      * Executes single test.
      *
-     * @param source the source
+     * @param testSource   the source
      * @param testCase the test case
      * @return the java . util . collection
-     * @throws TestCaseExecutionException the test case execution exception
+     * @throws org.aksw.rdfunit.exceptions.TestCaseExecutionException the test case execution exception
      */
-    abstract protected Collection<TestCaseResult> executeSingleTest(Source source, TestCase testCase) throws TestCaseExecutionException;
+    protected abstract Collection<TestCaseResult> executeSingleTest(TestSource testSource, TestCase testCase) throws TestCaseExecutionException;
 
 
     /**
      * Test execution for a Source against a TestSuite
      *
-     * @param source the source we want to test
+     * @param testSource    the source we want to test
      * @param testSuite the test suite we test the source against
-     * @param delay delay between sparql queries
      * @return true if all TC executed successfully, false otherwise
      */
-    public boolean execute(Source source, TestSuite testSuite, int delay) {
+    public boolean execute(TestSource testSource, TestSuite testSuite) {
         // used to hold the whole status of the execution
         boolean success = true;
 
@@ -82,7 +83,7 @@ public abstract class TestExecutor {
 
         /*notify start of testing */
         for (TestExecutorMonitor monitor : progressMonitors) {
-            monitor.testingStarted(source, testSuite);
+            monitor.testingStarted(testSource, testSuite);
         }
 
         for (TestCase testCase : testSuite.getTestCases()) {
@@ -100,37 +101,40 @@ public abstract class TestExecutor {
 
             // Test case execution and debug logging
             long executionTimeStartInMS = System.currentTimeMillis();
-            log.debug(testCase.getAbrTestURI()+ " : started execution");
+            log.debug("{} : started execution", testCase.getAbrTestURI());
 
             try {
-                results = executeSingleTest(source, testCase);
+                results = executeSingleTest(testSource, testCase);
             } catch (TestCaseExecutionException e) {
+                log.debug("Error (handled) running TC: " + testCase.getAbrTestURI(), e);
                 status = e.getStatus();
+            } catch (RuntimeException e) {
+                //try {
+                    //Thread.sleep(40000);// when VOS (SPARQL Endpoint crashes we can put a sleep here until it restarts and comment the throw
+                //} catch (InterruptedException e1) {
+                //    e1.printStackTrace();
+                //}
+                log.error("Unknown error while executing TC: " + testCase.getAbrTestURI(), e);
+                //throw new RuntimeException("Unknown error while executing TC: " + testCase.getAbrTestURI(), e);
             } catch (Exception e) {
-                String message = "Unknown error while executing TC: " + testCase.getAbrTestURI();
-                log.error(message, e);
-                if (e instanceof RuntimeException) {
-                    throw new RuntimeException(message, e);
-                }
-                else {
-                    status = TestCaseResultStatus.Error;
-                }
+                log.error("Unknown error while executing TC: " + testCase.getAbrTestURI(), e);
+                status = TestCaseResultStatus.Error;
             }
 
             long executionTimeEndInMS = System.currentTimeMillis();
-            log.debug(testCase.getAbrTestURI()+ " : execution completed in " + (executionTimeEndInMS - executionTimeStartInMS) + "ms");
+            log.debug("{} : execution completed in {}ms", testCase.getAbrTestURI(), (executionTimeEndInMS - executionTimeStartInMS));
 
-            if (results.size() == 0) {
+            if (results.isEmpty()) {
                 status = TestCaseResultStatus.Success;
             } else if (results.size() > 1) {
                 status = TestCaseResultStatus.Fail;
             } else {
                 status = TestCaseResultStatus.Error; // Default
-                TestCaseResult r = RDFUnitUtils.getFirstItemInCollection(results);
+                TestCaseResult r = RDFUnitUtils.getFirstItemInCollection(results).get();
                 if (r instanceof StatusTestCaseResult) {
                     status = ((StatusTestCaseResult) r).getStatus();
                 } else {
-                    if (r instanceof RLOGTestCaseResult) {
+                    if (r instanceof ShaclLiteTestCaseResult) {
                         status = TestCaseResultStatus.Fail;
                     }
                 }
@@ -147,20 +151,10 @@ public abstract class TestExecutor {
                 monitor.singleTestExecuted(testCase, status, results);
             }
 
-            if (delay > 0) {
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException e) {
-                    // do nothing
-                }
-            }
-
         } // End of TC execution for loop
 
         /*notify end of testing */
-        for (TestExecutorMonitor monitor : progressMonitors) {
-            monitor.testingFinished();
-        }
+        progressMonitors.forEach(TestExecutorMonitor::testingFinished);
 
         return success;
     }
@@ -171,7 +165,10 @@ public abstract class TestExecutor {
      * @param monitor the monitor
      */
     public void addTestExecutorMonitor(TestExecutorMonitor monitor) {
-        progressMonitors.add(monitor);
+
+        if (!progressMonitors.contains(monitor)) {
+            progressMonitors.add(monitor);
+        }
     }
 
     /**
@@ -181,6 +178,13 @@ public abstract class TestExecutor {
      */
     public void removeTestExecutorMonitor(TestExecutorMonitor monitor) {
         progressMonitors.remove(monitor);
+    }
+
+    /**
+     * Clears all test executor monitors.
+     */
+    public void clearTestExecutorMonitor() {
+        progressMonitors.clear();
     }
 
 }

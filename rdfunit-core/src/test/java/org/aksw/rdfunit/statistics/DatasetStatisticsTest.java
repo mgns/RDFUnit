@@ -2,59 +2,52 @@ package org.aksw.rdfunit.statistics;
 
 import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.jena_sparql_api.model.QueryExecutionFactoryModel;
-import org.aksw.rdfunit.Utils.RDFUnitUtils;
-import org.aksw.rdfunit.io.RDFReader;
-import org.aksw.rdfunit.sources.SchemaSource;
-import org.junit.After;
+import org.aksw.rdfunit.io.reader.RdfReader;
+import org.aksw.rdfunit.io.reader.RdfReaderException;
+import org.aksw.rdfunit.io.reader.RdfReaderFactory;
 import org.junit.Before;
-import org.junit.Test;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
-import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
 
-public class DatasetStatisticsTest {
+public abstract class DatasetStatisticsTest {
 
-    private DatasetStatistics datasetStatistics;
-    private DatasetStatistics datasetStatisticsCounts;
-
-    /* number of defined NS in patterns.ttl*/
-    private final int nsInPatterns = 3;
-    private final Integer zero = new Integer(0);
-
+    protected QueryExecutionFactory qef;
 
     @Before
-    public void setUp() throws Exception {
-        RDFReader patternReader = RDFUnitUtils.getPatternsFromResource();
-        QueryExecutionFactory qef = new QueryExecutionFactoryModel(patternReader.read());
-        datasetStatistics = new DatasetStatistics(qef, false);
-        datasetStatisticsCounts = new DatasetStatistics(qef, true);
+    public void setUp() throws RdfReaderException {
+        RdfReader reader = RdfReaderFactory.createResourceReader("/org/aksw/rdfunit/data/statistics.sample.ttl");
+        qef = new QueryExecutionFactoryModel(reader.read());
     }
 
-    @After
-    public void tearDown() throws Exception {
+    protected abstract int getExteptedItems();
 
+    protected abstract DatasetStatistics getStatisticsObject();
+
+    protected Map<String, Long> executeBasicTest() {
+        Map<String, Long> stats = getStatisticsObject().getStatisticsMap(qef);
+        assertEquals(getExteptedItems(), stats.size());
+
+        return stats;
     }
 
+    /*
     @Test
-    public void testGetPropertyStats() throws Exception {
+    public void testGetPropertyStats() {
         Map<String, Integer> pStats = datasetStatistics.getPropertyStats();
         Map<String, Integer> pStatsCounts = datasetStatisticsCounts.getPropertyStats();
 
         assertEquals("Stats with counts should be equal without counts", pStats.size(), pStatsCounts.size());
 
-        for (String s : pStats.keySet()) {
-            Integer count = pStats.get(s);
+        for (Map.Entry<String, Integer> entry : pStats.entrySet()) {
+            Integer count = entry.getValue();
             assertNotNull(count);
             assertEquals("No count stats must have 0 as count", count, zero);
         }
 
-        for (String s : pStatsCounts.keySet()) {
-            Integer count = pStatsCounts.get(s);
+        for (Map.Entry<String, Integer> entry : pStatsCounts.entrySet()) {
+            Integer count = entry.getValue();
             assertNotNull(count);
             assertNotEquals("No count stats must have <>0 as count", count, zero);
         }
@@ -62,7 +55,7 @@ public class DatasetStatisticsTest {
     }
 
     @Test
-    public void testGetClassStats() throws Exception {
+    public void testGetClassStats() {
 
         Map<String, Integer> cStats = datasetStatistics.getClassStats();
         Map<String, Integer> cStatsCounts = datasetStatisticsCounts.getClassStats();
@@ -70,23 +63,23 @@ public class DatasetStatisticsTest {
         assertEquals("Stats with counts should be equal without counts", cStats.size(), cStatsCounts.size());
 
 
-        for (String s : cStats.keySet()) {
-            Integer count = cStats.get(s);
+        for (Map.Entry<String, Integer> entry : cStats.entrySet()) {
+            Integer count = entry.getValue();
             assertNotNull(count);
             assertEquals("No count stats must have 0 as count", count, zero);
         }
 
-        for (String s : cStatsCounts.keySet()) {
-            Integer count = cStatsCounts.get(s);
+        for (Map.Entry<String, Integer> entry : cStatsCounts.entrySet()) {
+            Integer count = entry.getValue();
             assertNotNull(count);
             assertNotEquals("No count stats must have <>0 as count", count, zero);
         }
     }
 
     @Test
-    public void testGetAllNamespaces() throws Exception {
-        Collection<String> ns = datasetStatistics.getAllNamespaces();
-        Collection<String> nsCount = datasetStatisticsCounts.getAllNamespaces();
+    public void testGetAllNamespaces() {
+        Collection<String> ns = datasetStatistics.getAllNamespacesOntology();
+        Collection<String> nsCount = datasetStatisticsCounts.getAllNamespacesOntology();
 
         assertEquals("NS with counts should be equal without counts", ns.size(), nsCount.size());
         assertEquals("Should be 3", ns.size(), nsInPatterns);
@@ -94,33 +87,15 @@ public class DatasetStatisticsTest {
     }
 
     @Test
-    public void testgetIdentifiedSchemata() throws Exception {
-        Collection<SchemaSource> schemata = datasetStatistics.getIdentifiedSchemata();
-        //Collection<SchemaSource> schemataCount = datasetStatisticsCounts.getIdentifiedSchemata();
+    public void testgetIdentifiedSchemata() {
+        //Collection<SchemaSource> schemata =  datasetStatistics.getIdentifiedSchemataOntology();
+        //Collection<SchemaSource> schemataCount = datasetStatisticsCounts.getIdentifiedSchemataOntology();
 
         // TODO: init SchemaService to get data
         //assertEquals("NS with counts should be equal without counts", schemata.size(), schemataCount.size());
         //assertEquals("Should be 3", schemata.size(), nsInPatterns);
 
-    }
+    }  */
 
-    @Test
-    public void testGetNamespaceFromURI() throws Exception {
-        Map<String, String> examples = new HashMap<>();
-        examples.put("http://example.com/property", "http://example.com/");
-        examples.put("http://example.com#property", "http://example.com#");
-        examples.put("http://www.w3.org/2004/02/skos/core#broader", "http://www.w3.org/2004/02/skos/core#");
 
-        for (String uri : examples.keySet()) {
-            String namespace = examples.get(uri);
-            assertEquals("All prefixed should be initialized", namespace, datasetStatistics.getNamespaceFromURI(uri));
-            // test both in case there is a conflict
-            assertEquals("All prefixed should be initialized", namespace, datasetStatisticsCounts.getNamespaceFromURI(uri));
-        }
-    }
-
-    @Test
-    public void testGetStats() throws Exception {
-
-    }
 }

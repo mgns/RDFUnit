@@ -1,10 +1,10 @@
 package org.aksw.rdfunit.tests.executors.monitors;
 
 import org.aksw.rdfunit.enums.TestCaseResultStatus;
-import org.aksw.rdfunit.sources.Source;
-import org.aksw.rdfunit.tests.TestCase;
-import org.aksw.rdfunit.tests.TestSuite;
-import org.aksw.rdfunit.tests.results.TestCaseResult;
+import org.aksw.rdfunit.model.interfaces.TestCase;
+import org.aksw.rdfunit.model.interfaces.TestSuite;
+import org.aksw.rdfunit.model.interfaces.results.TestCaseResult;
+import org.aksw.rdfunit.sources.TestSource;
 
 import java.util.Collection;
 
@@ -12,18 +12,20 @@ import java.util.Collection;
 /**
  * interface for monitoring a TestExecutor
  * .
+ *
  * @author Dimitris Kontokostas
- *         Description
+
  * @since 1 /3/14 12:23 PM
+
  */
 public interface TestExecutorMonitor {
     /**
      * Called when testing starts
      *
-     * @param dataset the dataset
+     *  @param testSource   the dataset
      * @param testSuite the test suite
      */
-    void testingStarted(final Source dataset, final TestSuite testSuite);
+    void testingStarted(final TestSource testSource, final TestSuite testSuite);
 
     /**
      * Called when a single test starts
@@ -35,8 +37,8 @@ public interface TestExecutorMonitor {
     /**
      * Called when a single test is executed
      *
-     * @param test the test
-     * @param status the status
+     * @param test    the test
+     * @param status  the status
      * @param results the results
      */
     void singleTestExecuted(final TestCase test, final TestCaseResultStatus status, final Collection<TestCaseResult> results);
