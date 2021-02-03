@@ -41,72 +41,150 @@ import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-@Command(name = "validate", description = "Validate a dataset",
+@Command(name = "validate",
+    description = "Validate a dataset",
     mixinStandardHelpOptions = true)
 public class ValidateCommand implements Callable {
 
   static Logger log = LoggerFactory.getLogger(CLI.class);
 
-  @Option(names = {"-d",
-      "--dataset-uri"}, description = "The dataset URI (required).", required = true)
+  @Option(names = {"-d", "--dataset-uri"},
+      description = "The dataset URI (required)",
+      required = true)
   String datasetURI;
 
   @ArgGroup(exclusive = true)
-  DatasetOptions datasetOptions;
-  @Option(names = {"-s", "--schemas"}, description = "The schemata used in the chosen graph "
-      + "(comma separated prefixes without whitespaces according to http://lov.okfn.org/). If this option is missing RDFUnit will try to guess them automatically.", split = ",")
+  DatasetOptions datasetOptions = new DatasetOptions();
+
+  @Option(names = {"-s", "--schemas"},
+      description = "The schemata used in the chosen graph (comma separated prefixes according to http://lov.okfn.org/): If this option is missing RDFUnit will try to guess them automatically",
+      split = "\\s*,\\s*",
+      splitSynopsisLabel = ",")
   Collection<String> schemaUriPrefixes = new ArrayList<String>();
-  @Option(names = {"-v", "--no-LOV"}, description = "Do not use the LOV service.")
-  boolean noLOV = false;
-  @Option(names = {"-i",
-      "--imports"}, description = "If set, in addition to the schemata provided or discovered, all transitively discovered import schemata (owl:imports) are included into the schema set.")
-  boolean imports = false;
-  @Option(names = {"-x",
-      "--exclude"}, description = "The schemata excluded from test generation (comma separated prefixes without whitespaces according to http://lov.okfn.org/).", split = ",")
+
+  @Option(names = {"-v", "--no-LOV"},
+      defaultValue = "false",
+      description = "Do not use the LOV service")
+  boolean noLOV;
+
+  @Option(names = {"-i", "--imports"},
+      defaultValue = "false",
+      description = "If set, in addition to the schemata provided or discovered, all transitively discovered import schemata (owl:imports) are included into the schema set")
+  boolean imports;
+
+  @Option(names = {"-x", "--exclude"},
+      description = "The schemata excluded from test generation (comma separated prefixes according to http://lov.okfn.org/)",
+      split = "\\s*,\\s*",
+      splitSynopsisLabel = ",")
   Collection<String> excluded = new ArrayList<String>();
-  @Option(names = {"-o",
-      "--output-format"}, description = "The output format of the validation results. One of `html` (default), `turtle`, `n3`, `ntriples`, `json-ld`, `rdf-json`, `rdfxml`, `rdfxml-abbrev`, `junitxml`.", defaultValue = "html")
+
+  @Option(names = {"-o", "--output-format"},
+      defaultValue = "html",
+      description = "The output format of the validation results: One of `html`, `turtle`, `n3`, `ntriples`, `json-ld`, `rdf-json`, `rdfxml`, `rdfxml-abbrev`, `junitxml` (default: ${DEFAULT-VALUE})")
   String outputFormat = "";
-  @Option(names = {"-p",
-      "--enriched-prefix"}, description = "The prefix of this dataset used for caching the schema enrichment.")
+
+  @Option(names = {"-p", "--enriched-prefix"},
+      description = "The prefix of this dataset used for caching the schema enrichment")
   String enrichedPrefix = "";
-  @Option(names = {"-C",
-      "--no-test-cache"}, description = "Do not load cached test cases, regenerate them (cached test cases are loaded by default).")
-  boolean noTestCache = false;
-  @Option(names = {"-M",
-      "--no-manual-tests"}, description = "Do not load any manually defined test cases (manual test cases are loaded by default).")
-  boolean noManualTests = false;
-  @Option(names = {"-A",
-      "--no-auto-tests"}, description = "Do not load any schema / automatically generated test cases (automatically generated test cases are loaded by default).")
-  boolean noAutoTests = false;
-  @Option(names = {"-r",
-      "--result-level"}, description = "Specify the result level for the error reporting. One of `status`, `aggregate` (default), `rlog`, `extended.", defaultValue = "aggregate")
-  String resultLevel = "";
-  @Option(names = {"-l",
-      "--logging-level"}, description = "NOT SUPPORTED at the moment! will filter test cases based on logging level (notice, warn, error, etc).")
+
+  @Option(names = {"-C", "--no-test-cache"},
+      defaultValue = "false",
+      description = "Do not load cached test cases, regenerate them (cached test cases are loaded by default)")
+  boolean noTestCache;
+
+  @Option(names = {"-M", "--no-manual-tests"},
+      defaultValue = "false",
+      description = "Do not load any manually defined test cases (manual test cases are loaded by default)")
+  boolean noManualTests;
+
+  @Option(names = {"-A", "--no-auto-tests"},
+      defaultValue = "false",
+      description = "Do not load any schema / automatically generated test cases (automatically generated test cases are loaded by default)")
+  boolean noAutoTests;
+
+  @Option(names = {"-r", "--result-level"},
+      defaultValue = "aggregate",
+      description = "Specify the result level for the error reporting: One of `status`, `aggregate`, `rlog`, `extended` (default: ${DEFAULT-VALUE})")
+  String resultLevel;
+
+  @Option(names = {"-l", "--logging-level"},
+      description = "NOT SUPPORTED at the moment! will filter test cases based on logging level (notice, warn, error, etc).")
   String loggingLevel = "";
-  @Option(names = {"-T",
-      "--query-cache-ttl"}, description = "The SPARQL endpoint cache Time-To-Live (TTL) (in minutes) or '0' to disable it.", defaultValue = "1440")
-  int queryCacheTTL;
-  @Option(names = {"-D",
-      "--query-delay"}, description = "The delay between consecutive queries against an endpoint (in seconds) or '0' to disable delay.", defaultValue = "0")
-  long queryDelay;
-  @Option(names = {"-L",
-      "--query-limit"}, description = "The maximum results from a SPARQL test query or '0' to disable limits.", defaultValue = "0")
-  int queryLimit;
-  @Option(names = {"-P",
-      "--query-pagination"}, description = "The pagination page size for retrieving big results or '0' to disable it.", defaultValue = "0")
-  long queryPagination;
-  @Option(names = {"-c", "--test-coverage"}, description = "Calculate test-coverage scores.")
-  boolean testCoverage = false;
-  @Option(names = {"-f", "--data-folder"}, description =
-      "The location of the data folder (defaults to './data/' or '~/.rdfunit/). This is where the results and the caches are stored. "
-          + "If none exists, bundled versions will be loaded.", defaultValue = "./data/")
-  private String dataFolder = null;
+
+  @Option(names = {"-c", "--test-coverage"},
+      defaultValue = "false",
+      description = "Calculate test-coverage scores (default: ${DEFAULT-VALUE})")
+  boolean testCoverage;
+
+  @Option(names = {"-f", "--data-folder"},
+      defaultValue = "./data/",
+      description = "The location of the data folder where results and caches are stored (default: ${DEFAULT-VALUE})")
+  private String dataFolder;
 
   private static void displayHelpAndExit(String errorMessage, Exception e) {
     log.error(errorMessage, e);
     //displayHelpAndExit();
+  }
+
+  static class DatasetOptions {
+    @ArgGroup(exclusive = false)
+    EndpointOptions endpointOptions;
+
+    @Option(names = {"-u", "--uri"},
+        description = "The URI to use for dereferencing a dump if not the same with the dataset URI (-d)")
+    String customDereferenceURI;
+
+    static class EndpointOptions {
+      @Option(names = {"-e", "--endpoint"},
+          description = "The endpoint URI to run the tests on (if no endpoint or dump URI (-u) is provided RDFUnit will try to dereference the dataset URI (-d))",
+          required = true)
+      String endpointURI;
+
+      @Option(names = {"-g", "--graph"},
+          defaultValue = "",
+          description = "The graphs to use, separate multiple graphs with ',' (default: ${DEFAULT-VALUE})",
+          split = "\\s*,\\s*",
+          splitSynopsisLabel = ",")
+      Collection<String> endpointGraphs;
+
+      @ArgGroup(exclusive = false)
+      EndpointPerformanceOptions endpointPerformanceOptions = new EndpointPerformanceOptions();
+
+      static class EndpointPerformanceOptions {
+        @Option(names = {"-T", "--query-cache-ttl"},
+            defaultValue = "10080",
+            description = "The SPARQL endpoint cache Time-To-Live (TTL) (in minutes) or '0' to disable it (default: ${DEFAULT-VALUE})")
+        int queryCacheTTL;
+
+        @Option(names = {"-D", "--query-delay"},
+            defaultValue = "5",
+            description = "The delay between consecutive queries against an endpoint (in seconds) or '0' to disable delay (default: ${DEFAULT-VALUE})")
+        long queryDelay;
+
+        @Option(names = {"-L", "--query-limit"},
+            defaultValue = "800",
+            description = "The maximum results from a SPARQL test query or '0' to disable limits (default: ${DEFAULT-VALUE})")
+        int queryLimit;
+
+        @Option(names = {"-P", "--query-pagination"},
+            defaultValue = "800",
+            description = "The pagination page size for retrieving big results or '0' to disable it (default: ${DEFAULT-VALUE})")
+        long queryPagination;
+      }
+
+      @ArgGroup(exclusive = false)
+      EndpointBasicAuthOptions endpointBasicAuthOptions;
+
+      static class EndpointBasicAuthOptions {
+        @Option(names = {"-eu", "--endpoint-username"},
+            description = "The username for endpoint basic authentication.")
+        String username;
+
+        @Option(names = {"-ep", "--endpoint-password"},
+            description = "The password for endpoint basic authentication.")
+        String password;
+      }
+    }
   }
 
   @Override
@@ -206,6 +284,7 @@ public class ValidateCommand implements Callable {
     RDFUnitConfiguration configuration = readDatasetUriAndInitConfiguration();
 
     setDumpOrSparqlEndpoint(configuration);
+    setQueryTtlCachePaginationLimit(configuration);
 
     loadSchemaDecl(configuration);
 
@@ -217,8 +296,6 @@ public class ValidateCommand implements Callable {
     setOutputFormats(configuration);
 
     setTestAutogetCacheManual(configuration);
-
-    setQueryTtlCachePaginationLimit(configuration);
 
     setCoverageCalculation(configuration);
 
@@ -239,16 +316,12 @@ public class ValidateCommand implements Callable {
 
   private void setDumpOrSparqlEndpoint(RDFUnitConfiguration configuration) {
     // Dump location for dump dereferencing (defaults to dataset uri)
-    if (datasetOptions != null && datasetOptions.customDereferenceURI != null
-        && !datasetOptions.customDereferenceURI.isEmpty()) {
+    if (datasetOptions.customDereferenceURI != null) {
       configuration.setCustomDereferenceURI(datasetOptions.customDereferenceURI);
     }
 
     //Endpoint initialization
-    if (datasetOptions != null &&
-        datasetOptions.endpointOptions != null &&
-        datasetOptions.endpointOptions.endpointURI != null &&
-        !datasetOptions.endpointOptions.endpointURI.isEmpty()) {
+    if (datasetOptions.endpointOptions != null) {
       if (datasetOptions.endpointOptions.endpointBasicAuthOptions != null) {
         configuration.setEndpointConfiguration(datasetOptions.endpointOptions.endpointURI,
             datasetOptions.endpointOptions.endpointGraphs,
@@ -368,57 +441,27 @@ public class ValidateCommand implements Callable {
 
   private void setQueryTtlCachePaginationLimit(RDFUnitConfiguration configuration)
       throws ParameterException {
+    if (datasetOptions.endpointOptions == null)
+      return;
+
     // Get query time to live cache option
 
     // we set the cache in minutes
-    long ttl = 60L * 1000L * queryCacheTTL;
+    long ttl = 60L * 1000L * datasetOptions.endpointOptions.endpointPerformanceOptions.queryCacheTTL;
     configuration.setEndpointQueryCacheTTL(ttl);
 
     // Get query delay option
-    configuration.setEndpointQueryDelayMS(queryDelay);
+    configuration.setEndpointQueryDelayMS(datasetOptions.endpointOptions.endpointPerformanceOptions.queryDelay);
 
     // Get query pagination option
-    configuration.setEndpointQueryPagination(queryPagination);
+    configuration.setEndpointQueryPagination(datasetOptions.endpointOptions.endpointPerformanceOptions.queryPagination);
 
     // Get query Limit option
-    configuration.setEndpointQueryLimit(queryLimit);
+    configuration.setEndpointQueryLimit(datasetOptions.endpointOptions.endpointPerformanceOptions.queryLimit);
   }
 
   private void setCoverageCalculation(RDFUnitConfiguration configuration) {
     configuration.setCalculateCoverageEnabled(testCoverage);
   }
 
-  static class DatasetOptions {
-
-    @ArgGroup(exclusive = false)
-    EndpointOptions endpointOptions;
-    @Option(names = {"-u",
-        "--uri"}, description = "The URI to use for dereferencing a dump if not the same with the dataset URI (-d).")
-    String customDereferenceURI;
-
-    static class EndpointOptions {
-
-      @Option(names = {"-e",
-          "--endpoint"}, description = "The endpoint URI to run the tests on (if no endpoint or dump URI (-u) is provided RDFUnit will try to dereference the dataset URI (-d)).")
-      String endpointURI;
-
-      @Option(names = {"-g",
-          "--graph"}, description = "The graphs to use, separate multiple graphs with ',' (no whitespaces) (defaults to '').", split = ",")
-      Collection<String> endpointGraphs;
-
-      @ArgGroup(exclusive = false)
-      EndpointBasicAuthOptions endpointBasicAuthOptions;
-
-      static class EndpointBasicAuthOptions {
-
-        @Option(names = {"-eu",
-            "--endpoint-username"}, description = "The username for endpoint basic authentication.")
-        String username;
-
-        @Option(names = {"-ep",
-            "--endpoint-password"}, description = "The password for endpoint basic authentication.")
-        String password;
-      }
-    }
-  }
 }
