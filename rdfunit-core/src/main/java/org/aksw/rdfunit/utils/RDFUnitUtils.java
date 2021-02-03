@@ -47,7 +47,8 @@ public final class RDFUnitUtils {
   public static void fillSchemaServiceFromFile(String additionalCSV) throws IOException {
 
     try (InputStream inputStream = new FileInputStream(additionalCSV)) {
-      fillSchemaServiceFromFile(inputStream);
+      int count = fillSchemaServiceFromFile(inputStream);
+      log.info("Loaded " + count + " schema declarations from: " + additionalCSV);
     } catch (IOException e) {
       log.error("Error loading schemas from " + additionalCSV + "!", e);
       throw e;
@@ -58,16 +59,16 @@ public final class RDFUnitUtils {
       throws IOException {
 
     URL resourceUrl = Resources.getResource(additionalCSVAsResource);
-    try (
-        InputStream inputStream = resourceUrl.openStream()) {
-      fillSchemaServiceFromFile(inputStream);
+    try (InputStream inputStream = resourceUrl.openStream()) {
+      int count = fillSchemaServiceFromFile(inputStream);
+      log.info("Loaded " + count + " schema declarations from: " + additionalCSVAsResource);
     } catch (IOException e) {
       log.error("Error loading schemas from " + additionalCSVAsResource + "!", e);
       throw e;
     }
   }
 
-  private static void fillSchemaServiceFromFile(InputStream additionalCSV) throws IOException {
+  private static int fillSchemaServiceFromFile(InputStream additionalCSV) throws IOException {
 
     int count = 0;
 
@@ -103,8 +104,6 @@ public final class RDFUnitUtils {
         }
 
       }
-
-      log.info("Loaded " + count + " schema declarations from: " + additionalCSV);
     }
 
     if (additionalCSV != null) {
@@ -114,6 +113,8 @@ public final class RDFUnitUtils {
         log.debug("IOException: ", e);
       }
     }
+
+    return count;
   }
 
   public static void fillSchemaServiceWithStandardVocabularies() throws IOException {

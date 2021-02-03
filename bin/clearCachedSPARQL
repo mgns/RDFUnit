@@ -4,4 +4,4 @@
 # bin/clearCachedSPARQL
 #
 
-rm -r rdfunit-core/cache/sparql/
+rm -r cache/sparql/

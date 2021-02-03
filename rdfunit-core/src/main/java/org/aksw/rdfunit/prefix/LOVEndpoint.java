@@ -106,7 +106,7 @@ public final class LOVEndpoint {
   public static void main(String[] args) {
     LOVEndpoint lov = new LOVEndpoint();
     String file = args.length > 0 ? args[1].trim()
-        : "rdfunit-model/src/main/resources/org/aksw/rdfunit/configuration/schemaLOV.csv";
+        : "rdfunit-commons/src/main/resources/org/aksw/rdfunit/configuration/schemaLOV.csv";
     lov.writeAllLOVEntriesToFile(file);
   }
 
