@@ -100,7 +100,6 @@
         <artifactId>jetty-maven-plugin</artifactId>
         <version>11.0.0</version>
         <configuration>
-          <scanIntervalSeconds>5</scanIntervalSeconds>
           <httpConnector>
             <port>8787</port>
           </httpConnector>
@@ -183,7 +182,7 @@
                   <transformers>
                     <transformer
                       implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                      <mainClass>org.aksw.rdfunit.validate.cli.ValidateCLI</mainClass>
+                      <mainClass>org.aksw.rdfunit.validate.cli.CLI</mainClass>
                     </transformer>
                     <transformer
                       implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
@@ -276,7 +275,7 @@
                   <transformers>
                     <transformer
                       implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                      <mainClass>org.aksw.rdfunit.validate.cli.ValidateCLI</mainClass>
+                      <mainClass>org.aksw.rdfunit.validate.cli.CLI</mainClass>
                     </transformer>
                     <transformer
                       implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
